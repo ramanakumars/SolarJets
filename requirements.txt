@@ -1,0 +1,8 @@
+# requirements for the Solar Jet Hunter zooniverse project
+numpy
+scipy
+matplotlib
+astropy
+scikit-image
+panoptes_aggregation
+panoptes-client
