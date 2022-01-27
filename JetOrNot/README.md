@@ -7,12 +7,12 @@ This features the set of scripts to aggregate the workflow (a binary task), whic
 To do the aggregation, you will need the [panoptes aggregation app](https://github.com/zooniverse/aggregation-for-caesar/) installed for offline use as well as the raw classifications. See [here](https://aggregation-caesar.zooniverse.org/README.html) on how to install the aggregation tool for offline use, or follow the [installation procedure](https://github.com/ramanakumars/SolarJets/blob/main/README.md/) for the main repo to install everything.
 
 ### Preparing the aggregation pipeline
-To get the extracts, you will need the workflow export as well as the classification exports from the Zooniverse project builder. Open [zooniverse.org/lab](https://www.zooniverse.org/lab), select the Solar Jet Hunter project and go to the Data Exports tab. Click on "Request new classification export". You will receive and email when these are ready. The workflow export does not generally need to be regenerated, unless the workflows have been changed, so we can just download the existing one. Save both these files in a directory.
+To get the extracts, you will need the workflow export as well as the classification exports from the Zooniverse project builder. Open [zooniverse.org/lab](https://www.zooniverse.org/lab), select the Solar Jet Hunter project and go to the Data Exports tab. Click on "Request new classification export". You will receive and email when these are ready. The workflow export does not generally need to be regenerated, unless the workflows have been changed, so we can just download the existing one. Save both these files in a directory. In this repo, the workflows config is in the main repo folder while the classifications are in this folder. 
 
 ### Getting the extracts
 Open a terminal in the directory where both those CSVs are and make sure that `panoptes_aggregation` is installed. Then, we will create the extractor and reducer configurations for the panoptes aggregation module by running:
 ```bash
-panoptes_aggregation panoptes_aggregation config solar-jet-hunter-workflows.csv 18563
+panoptes_aggregation config ../solar-jet-hunter-workflows.csv 18563
 ```
 
 18563 is the workflow ID of the Jet or Not workflow, so this creates the configuration for extracting and reducing the data for this workflow. This will generate three files: `Extractor_config_workflow_18563_V[xx].[xx].yaml`,  `Reducer_config_workflow_18563_V[xx].[xx]_question_extractor.yaml` and  `Task_labels_workflow_18563_V[xx].[xx].yaml` where the two `[xx]` are version numbers for the workflow. In my case, they are 5.19.

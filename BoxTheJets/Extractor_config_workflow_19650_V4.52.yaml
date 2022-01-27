@@ -1,0 +1,28 @@
+extractor_config:
+    point_extractor_by_frame:
+    -   details: {}
+        task: T1
+        tools:
+        - 0
+        - 1
+    -   details: {}
+        task: T5
+        tools:
+        - 0
+        - 1
+    question_extractor:
+    -   task: T3
+    -   task: T4
+    shape_extractor_rotateRectangle:
+    -   details: {}
+        shape: rotateRectangle
+        task: T1
+        tools:
+        - 2
+    -   details: {}
+        shape: rotateRectangle
+        task: T5
+        tools:
+        - 2
+workflow_id: 19650
+workflow_version: '4.52'
