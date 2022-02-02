@@ -37,6 +37,18 @@ def get_box_edges(x, y, w, h, a):
     corners = np.matmul(original_points - centre, rotation) + centre
     return corners
 
+def get_subject_image(subject): 
+    # get the subject metadata from Panoptes
+    subjecti = Subject(int(subject))
+    try:
+        frame0_url = subjecti.raw['locations'][7]['image/png']
+    except KeyError:
+        frame0_url = subjecti.raw['locations'][7]['image/jpeg']
+    
+    img = io.imread(frame0_url)
+
+    return img
+
 class Aggregator:
     '''
         Single data class to handle different aggregation requirements
@@ -196,17 +208,9 @@ class Aggregator:
 
             plot_box = True
         except (ValueError, KeyError) as e:
-
             pb_i = np.ones_like(x_i)
         
-        # get the subject metadata from Panoptes
-        subjecti = Subject(int(subject))
-        try:
-            frame0_url = subjecti.raw['locations'][7]['image/png']
-        except KeyError:
-            frame0_url = subjecti.raw['locations'][7]['image/jpeg']
-        
-        img = io.imread(frame0_url)
+        img = get_subject_image(subject)
         
         if ax is None:
             fig, ax = plt.subplots(1, 1, dpi=150)
@@ -280,3 +284,135 @@ class Aggregator:
                     self.retired_subjects.append(subject)
                     break
         
+
+    def load_extractor_data(self, point_extractor_file='point_extractor_by_frame_box_the_jets.csv', \
+        box_extractor_file='shape_extractor_rotateRectangle_box_the_jets.csv'):
+        self.point_extract_file = point_extractor_file
+        self.point_extracts     = ascii.read(point_extractor_file, delimiter=',')
+
+        self.box_extract_file = box_extractor_file
+        self.box_extracts     = ascii.read(box_extractor_file, delimiter=',')
+
+
+    def get_frame_time_base(self, subject, task='T1'):
+        '''
+            get the distribution of classifications by frame number for the base of the jet (both start and end)
+            and determine the best frame for each, based on a cluster probability based metric
+        '''
+
+        # get the cluster and points information from the reduced data
+        points_datai = self.points_data[:][(self.points_data['subject_id']==subject)&(self.points_data['task']==task)]
+        try:
+            cx0_i = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_clusters_x'][0]))
+            cy0_i = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_clusters_y'][0]))
+            x0_i  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_points_x'][0]))
+            y0_i  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_points_y'][0]))
+            p0_i  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_cluster_probabilities'][0]))
+        except (ValueError, KeyError) as e:
+            return
+
+        try:
+            cx1_i = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_clusters_x'][0]))
+            cy1_i = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_clusters_y'][0]))
+            x1_i  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_points_x'][0]))
+            y1_i  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_points_y'][0]))
+            p1_i  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
+        except (ValueError, KeyError) as e:
+            return
+
+        # get the extract data so that we can obtain frame_time info
+        # you need to run load_extractor data first
+        if hasattr(self, 'points_extract'), "Please load the extractor data using the load_extractor_data method"
+        point_extractsi = self.point_extracts[:][(self.point_extracts['subject_id']==subject)&(self.point_extracts['task']==task)]
+
+        # empty lists to hold the frame info
+        start_frames = []
+        end_frames   = []
+
+        # empty lists to hold the frame score
+        start_weights = []
+        end_weights   = []
+
+        for frame in range(15):
+            ## start of the jet is tool0
+            frame_start_ext = point_extractsi[f'data.frame{frame}.{task}_tool0_x',f'data.frame{frame}.{task}_tool0_y'][:]
+            for col in frame_start_ext.colnames:
+                frame_start_ext[col].fill_value = 'None'
+            
+            # rename the columns for easier use
+            frame_start_ext.rename_column(f'data.frame{frame}.{task}_tool0_x', f'frame{frame}_x')
+            frame_start_ext.rename_column(f'data.frame{frame}.{task}_tool0_y', f'frame{frame}_y')
+                
+            # find the rows with data for this frame
+            start_sub = frame_start_ext[:][frame_start_ext.filled()[f'frame{frame}_x'][:]!="None"]
+
+            # parse the data from the string value and add it to the list
+            points = []
+            probs  = []
+            for i in range(len(start_sub)):
+                xx = ast.literal_eval(start_sub[f'frame{frame}_x'][i])[0]
+                yy = ast.literal_eval(start_sub[f'frame{frame}_y'][i])[0]
+                points.append([xx, yy])
+                
+                # find the associated cluster probability based on the index of the points
+                # in the cluster info
+                ind = np.where((xx==x0_i)&(yy==y0_i))[0]
+                probs.append(p0_i[ind])
+
+            # convert to numpy array and append to the list
+            points = np.asarray(points)
+            start_frames.append(points)
+            start_weights.append(probs)
+            
+            # end of the jet is tool1
+            # do the same process for tool1
+            frame_end_ext = point_extractsi[f'data.frame{frame}.{task}_tool1_x',f'data.frame{frame}.{task}_tool1_y'][:]
+            for col in frame_end_ext.colnames:
+                frame_end_ext[col].fill_value = 'None'
+
+            frame_end_ext.rename_column(f'data.frame{frame}.{task}_tool1_x', f'frame{frame}_x')
+            frame_end_ext.rename_column(f'data.frame{frame}.{task}_tool1_y', f'frame{frame}_y')
+                
+            end_sub = frame_end_ext[:][frame_end_ext.filled()[f'frame{frame}_x'][:]!="None"]
+
+            points = []
+            probs = []
+            for i in range(len(end_sub)):
+                xx = ast.literal_eval(end_sub[f'frame{frame}_x'][i])[0]
+                yy = ast.literal_eval(end_sub[f'frame{frame}_y'][i])[0]
+                
+                points.append([xx, yy])
+                
+                # find the associated cluster probability based on the index of the points
+                # in the cluster info
+                ind = np.where((xx==x1_i)&(yy==y1_i))[0]
+                probs.append(p1_i[ind])
+
+            points = np.asarray(points)
+            end_frames.append(points)
+            end_weights.append(probs)
+        
+        # get the number of classifications for each point in time
+        npoints_start = [len(starti) for starti in start_frames]
+        npoints_end   = [len(endi) for endi in end_frames]
+
+        # the score is the sum of the probabilities at each frame
+        start_score = [np.sum(starti) for starti in start_weights]
+        end_score   = [np.sum(endi) for endi in end_weights]
+
+        # plot this "histogram"
+        fig, ax = plt.subplots(1,1, dpi=150)
+        ax.plot(npoints_start, 'r-', label='Start')
+        ax.plot(start_score, 'r--', label='Score')
+        ax.plot(npoints_end, 'b-', label='End')
+        ax.plot(end_score, 'b--', label='Score')
+        ax.plot(np.argmax(start_score), np.max(start_score), 'rx', label='Best')
+        ax.plot(np.argmax(end_score), np.max(end_score), 'bx', label='Best')
+
+        ax.set_ylabel("# of classifications")
+        ax.set_xlabel("Frame #")
+        ax.set_xlim((-1, 15))
+        ax.set_title(fr'{subject}')
+        
+        plt.legend(loc='upper center')
+        plt.show()

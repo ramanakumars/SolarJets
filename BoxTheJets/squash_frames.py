@@ -3,7 +3,7 @@ from astropy.io import ascii
 import ast
 
 ## point extractor
-file = 'point_extractor_by_frame_test.csv'
+file = 'point_extractor_by_frame_box_the_jets.csv'
 
 data = ascii.read(file, delimiter=',')
 
@@ -31,44 +31,44 @@ for k, col0k in enumerate(col0):
         data[coltype][mask] = ''
 
 # get the col names for each variable in frame0 in T1
-col0 = sorted([i for i in colnames if 'frame0.T1' in i])
-for k, col0k in enumerate(col0):
+# col0 = sorted([i for i in colnames if 'frame0.T1' in i])
+# for k, col0k in enumerate(col0):
     
-    # we can modify the frame0 tag to frame[n]
-    colT5 = col0k.replace('T1', 'T5')
-    data[colT5].fill_value = 'N/A'
+#     # we can modify the frame0 tag to frame[n]
+#     colT5 = col0k.replace('T1', 'T5')
+#     data[colT5].fill_value = 'N/A'
 
-    print(col0k, colT5)
+#     print(col0k, colT5)
 
-    # find the rows where there is data
-    mask = np.where(np.asarray(data[colT5][:].filled()) != 'N/A')[0]
+#     # find the rows where there is data
+#     mask = np.where(np.asarray(data[colT5][:].filled()) != 'N/A')[0]
 
-    for row in mask:
-        classification_id = data['classification_id'][row]
-        row_T1 = np.where((data['classification_id'][:]==classification_id)&(data['task'][:]=='T1'))[0][0]
-        try:
-            dataT1 = ast.literal_eval(data[col0k][row_T1])
-        except ValueError:
-            dataT1 = []
+#     for row in mask:
+#         classification_id = data['classification_id'][row]
+#         row_T1 = np.where((data['classification_id'][:]==classification_id)&(data['task'][:]=='T1'))[0][0]
+#         try:
+#             dataT1 = ast.literal_eval(data[col0k][row_T1])
+#         except ValueError:
+#             dataT1 = []
 
-        dataT5 = ast.literal_eval(data[colT5][row])
+#         dataT5 = ast.literal_eval(data[colT5][row])
 
-        # combine the T5 info with T1
-        outdata = []
-        outdata.extend(dataT1)
-        outdata.extend(dataT5)
+#         # combine the T5 info with T1
+#         outdata = []
+#         outdata.extend(dataT1)
+#         outdata.extend(dataT5)
 
-        # move those rows to frame0
-        data[col0[k]][row_T1] = str(outdata)
-        # print(row, outdata)
+#         # move those rows to frame0
+#         data[col0[k]][row_T1] = str(outdata)
+#         # print(row, outdata)
 
-        # and delete the other row
-        data[colT5][row] = ''
+#         # and delete the other row
+#         data[colT5][row] = ''
 
 ascii.write(data, file.replace('.csv', '_squashed.csv'), overwrite=True, delimiter=',')
 
 ## shape extractor
-file = 'shape_extractor_rotateRectangle_test.csv'
+file = 'shape_extractor_rotateRectangle_box_the_jets.csv'
 
 data = ascii.read(file, delimiter=',')
 
@@ -89,38 +89,38 @@ for k, col0k in enumerate(col0):
         data[coltype][~mask] = ''
 
 # get the col names for each variable in frame0 in T1
-col0 = sorted([i for i in colnames if 'frame0.T1' in i])
-for k, col0k in enumerate(col0):
+# col0 = sorted([i for i in colnames if 'frame0.T1' in i])
+# for k, col0k in enumerate(col0):
     
-    # we can modify the frame0 tag to frame[n]
-    colT5 = col0k.replace('T1', 'T5')
-    data[colT5].fill_value = 'N/A'
+#     # we can modify the frame0 tag to frame[n]
+#     colT5 = col0k.replace('T1', 'T5')
+#     data[colT5].fill_value = 'N/A'
 
-    print(col0k, colT5)
+#     print(col0k, colT5)
 
-    # find the rows where there is data
-    mask = np.where(np.asarray(data[colT5][:].filled()) != 'N/A')[0]
+#     # find the rows where there is data
+#     mask = np.where(np.asarray(data[colT5][:].filled()) != 'N/A')[0]
 
-    for row in mask:
-        classification_id = data['classification_id'][row]
-        row_T1 = np.where((data['classification_id'][:]==classification_id)&(data['task'][:]=='T1'))[0][0]
-        try:
-            dataT1 = ast.literal_eval(data[col0k][row_T1])
-        except ValueError:
-            dataT1 = []
+#     for row in mask:
+#         classification_id = data['classification_id'][row]
+#         row_T1 = np.where((data['classification_id'][:]==classification_id)&(data['task'][:]=='T1'))[0][0]
+#         try:
+#             dataT1 = ast.literal_eval(data[col0k][row_T1])
+#         except ValueError:
+#             dataT1 = []
 
-        dataT5 = ast.literal_eval(data[colT5][row])
+#         dataT5 = ast.literal_eval(data[colT5][row])
 
-        # combine the T5 info with T1
-        outdata = []
-        outdata.extend(dataT1)
-        outdata.extend(dataT5)
+#         # combine the T5 info with T1
+#         outdata = []
+#         outdata.extend(dataT1)
+#         outdata.extend(dataT5)
 
-        # move those rows to the T1 array
-        data[col0[k]][row_T1] = str(outdata)
-        # print(row, outdata)
+#         # move those rows to the T1 array
+#         data[col0[k]][row_T1] = str(outdata)
+#         # print(row, outdata)
 
-        # and delete the other row
-        data[colT5][row] = ''
+#         # and delete the other row
+#         data[colT5][row] = ''
 
 ascii.write(data, file.replace('.csv', '_squashed.csv'), overwrite=True, delimiter=',')
