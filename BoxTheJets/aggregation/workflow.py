@@ -322,7 +322,7 @@ class Aggregator:
 
         # get the extract data so that we can obtain frame_time info
         # you need to run load_extractor data first
-        if hasattr(self, 'points_extract'), "Please load the extractor data using the load_extractor_data method"
+        assert hasattr(self, 'point_extracts'), "Please load the extractor data using the load_extractor_data method"
         point_extractsi = self.point_extracts[:][(self.point_extracts['subject_id']==subject)&(self.point_extracts['task']==task)]
 
         # empty lists to hold the frame info
