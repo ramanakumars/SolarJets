@@ -7,6 +7,7 @@ import json
 from panoptes_client import Panoptes, Subject, Workflow
 from skimage import io
 import getpass
+from shapely.geometry import Polygon
 
 def connect_panoptes():
     '''
@@ -49,6 +50,29 @@ def get_subject_image(subject):
 
     return img
 
+
+def get_point_distance(x0, y0, x1, y1):
+    return np.sqrt((x0-x1)**2. + (y0-y1)**2.)
+
+def get_box_distance(box1, box2):
+    b1_edges = get_box_edges(*box1)[:4]
+    b2_edges = get_box_edges(*box2)[:4]
+
+    # build a distance matrix between the 4 edges
+    # since the order of edges may not be the same 
+    # for the two boxes
+    dists = np.zeros((4,4))
+    for c1 in range(4):
+        for c2 in range(4):
+            dists[c1,c2] = get_point_distance(*b1_edges[c1], *b2_edges[c2])
+
+    # then collapse the matrix into the minimum distance for each point
+    # does not matter which axis, since we get the least distance anyway
+    mindist = dists.min(axis=0)
+
+    return np.average(mindist)
+
+
 class Aggregator:
     '''
         Single data class to handle different aggregation requirements
@@ -72,7 +96,7 @@ class Aggregator:
             self.box_data[col].fill_value    = 'None'
 
         for col in self.points_data.colnames:
-            self.points_data[col].fill_value    = 'None'
+            self.points_data[col].fill_value = 'None'
 
 
     def filter_by_task(self, task):
@@ -240,7 +264,7 @@ class Aggregator:
             pass
 
         try:
-            alphai = np.asarray(p0_i)*0.5 + 0.5
+            alphai = np.asarray(p1_i)*0.5 + 0.5
             ax.scatter(x1_i, y1_i, 5.0, marker='.', color='yellow', alpha=alphai)
         except ValueError:
             pass
@@ -280,10 +304,11 @@ class Aggregator:
 
         self.retired_subjects = []
 
+        assert hasattr(self, 'classification_data'), \
+            "Please load the classification data using load_classification_data"
+
         for i, subject in enumerate(subjects):
             print("\r [%-20s] %d/%d"%(int(i/len(subjects)*20)*'=', i+1, len(subjects)), end='')
-            if not hasattr(self, 'classification_data'): 
-                raise KeyError("Please load the classification data using load_classification_data")
             
             # find the list of classifications for this subject
             subject_classifications = self.classification_data[:][\
@@ -539,3 +564,90 @@ class Aggregator:
         
         plt.tight_layout()
         plt.show()
+
+    def get_cluster_confidence(self, subject, task='T1'):
+        '''
+        
+        '''
+        points_datai = self.points_data[:][(self.points_data['subject_id']==subject)&(self.points_data['task']==task)]
+        box_datai    = self.box_data[:][(self.box_data['subject_id']==subject)&(self.box_data['task']==task)]
+
+        # convert the data from the csv into an array
+        x0 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_points_x'][0]))
+        y0 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_points_y'][0]))
+        x1 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_points_x'][0]))
+        y1 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_points_y'][0]))
+        
+        x = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_x'][0]))
+        y = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_y'][0]))
+        w = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_width'][0]))
+        h = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_height'][0]))
+        a = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_angle'][0]))
+        
+        cx0 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_clusters_x'][0]))
+        cy0 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_clusters_y'][0]))
+        cl0 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_cluster_labels'][0]))
+        p0  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_cluster_probabilities'][0]))
+    
+        cx1 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_clusters_x'][0]))
+        cy1 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_clusters_y'][0]))
+        cl1 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_cluster_labels'][0]))
+        p1  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
+    
+        cx = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_x'][0]))
+        cy = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_y'][0]))
+        cw = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_width'][0]))
+        ch = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_height'][0]))
+        ca = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_angle'][0]))
+        clb = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_cluster_labels'][0]))
+        pb = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_cluster_probabilities'][0]))
+
+        # get distances for the start points
+        start_dist = np.zeros(len(cx0))
+        nc0        = len(cx0)
+        for i in range(nc0):
+            # subset the clusters
+            mask = cl0==i
+            x0i  = x0[mask]
+            y0i  = y0[mask]
+            dists = np.zeros(len(x0i))
+            for j in range(len(x0i)):
+                dists[j] = get_point_distance(cx0[i], cy0[i], x0i[j], y0i[j])
+
+            start_dist[i] = np.mean(dists)#/np.max(dists)
+
+        # get distances for the end points
+        end_dist = np.zeros(len(cx1))
+        nc1        = len(cx1)
+        for i in range(nc1):
+            # subset the clusters
+            mask = cl1==i
+            x1i  = x1[mask]
+            y1i  = y1[mask]
+            dists = np.zeros(len(x1i))
+            for j in range(len(x1i)):
+                dists[j] = get_point_distance(cx1[i], cy1[i], x1i[j], y1i[j])
+
+            end_dist[i] = np.mean(dists)#/np.max(dists)
+
+        # for the boxes
+        box_iou = np.zeros(len(cx))
+        ncb     = len(cx)
+        for i in range(ncb):
+            # subset the clusters
+            mask = clb==i
+            xi  = x[mask]
+            yi  = y[mask]
+            wi  = w[mask]
+            hi  = h[mask]
+            ai  = a[mask]
+
+            cb = Polygon(get_box_edges(cx[i], cy[i], cw[i], ch[i], np.radians(ca[i]))[:4])
+
+            ious = np.zeros(len(xi))
+            for j in range(len(xi)):
+                bj = Polygon(get_box_edges(xi[j], yi[j], wi[j], hi[j], np.radians(ai[j]))[:4])
+                ious[j] = cb.intersection(bj).area/cb.union(bj).area#get_box_distance(cb, bj)
+            box_iou[i] = np.mean(ious)
+
+        return start_dist, end_dist, box_iou
