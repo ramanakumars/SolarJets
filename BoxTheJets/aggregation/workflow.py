@@ -567,7 +567,13 @@ class Aggregator:
 
     def get_cluster_confidence(self, subject, task='T1'):
         '''
-        
+            Calculate a confidence metric for a given subject for each of the start/end/box clusters.
+            Start and end points are given by the mean euclidian distance between each point and the corresponding cluster
+            while the box confidence is calculated from mean intersection over union. 
+
+            This method assumes that clusters exist, and will raise a `ValueError` if clusters do not exist for 
+            a given task. 
+
         '''
         points_datai = self.points_data[:][(self.points_data['subject_id']==subject)&(self.points_data['task']==task)]
         box_datai    = self.box_data[:][(self.box_data['subject_id']==subject)&(self.box_data['task']==task)]
@@ -587,12 +593,10 @@ class Aggregator:
         cx0 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_clusters_x'][0]))
         cy0 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_clusters_y'][0]))
         cl0 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_cluster_labels'][0]))
-        p0  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_cluster_probabilities'][0]))
     
         cx1 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_clusters_x'][0]))
         cy1 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_clusters_y'][0]))
         cl1 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_cluster_labels'][0]))
-        p1  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
     
         cx = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_x'][0]))
         cy = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_y'][0]))
@@ -600,20 +604,23 @@ class Aggregator:
         ch = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_height'][0]))
         ca = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_angle'][0]))
         clb = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_cluster_labels'][0]))
-        pb = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_cluster_probabilities'][0]))
 
         # get distances for the start points
         start_dist = np.zeros(len(cx0))
         nc0        = len(cx0)
         for i in range(nc0):
-            # subset the clusters
+            # subset the clusters based on the cluster label
             mask = cl0==i
             x0i  = x0[mask]
             y0i  = y0[mask]
             dists = np.zeros(len(x0i))
+
+            # for each point, calculate the Euclidian distance
             for j in range(len(x0i)):
                 dists[j] = get_point_distance(cx0[i], cy0[i], x0i[j], y0i[j])
 
+            # the distance for this cluster is the average distance
+            # of each clasification
             start_dist[i] = np.mean(dists)#/np.max(dists)
 
         # get distances for the end points
@@ -642,12 +649,14 @@ class Aggregator:
             hi  = h[mask]
             ai  = a[mask]
 
+            # calculate the IoU using Shapely's in built methods
             cb = Polygon(get_box_edges(cx[i], cy[i], cw[i], ch[i], np.radians(ca[i]))[:4])
-
             ious = np.zeros(len(xi))
             for j in range(len(xi)):
                 bj = Polygon(get_box_edges(xi[j], yi[j], wi[j], hi[j], np.radians(ai[j]))[:4])
-                ious[j] = cb.intersection(bj).area/cb.union(bj).area#get_box_distance(cb, bj)
+                ious[j] = cb.intersection(bj).area/cb.union(bj).area
+
+            # average all the IoUs for a cluster
             box_iou[i] = np.mean(ious)
 
         return start_dist, end_dist, box_iou
