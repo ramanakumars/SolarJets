@@ -1,7 +1,0 @@
-reducer_config:
-    shape_reducer_hdbscan:
-        shape: rotateRectangle
-        min_cluster_size: 2
-        min_samples: 2
-        cluster_selection_epsilon: 0.1
-        allow_single_cluster: True

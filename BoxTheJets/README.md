@@ -32,16 +32,19 @@ reducer_config:
         allow_single_cluster: True
 ```
 
-This is to use the HDBSCAN algorithm rather than the default, and also allow the clustering pipeline to generate one cluster when the data is tightly packed. Now, to run the aggregation, call the `do_aggregrations.sh` script:
+Move these files into the `configs/` folder. 
+
+This is to use the HDBSCAN algorithm rather than the default, and also allow the clustering pipeline to generate one cluster when the data is tightly packed. Now, to run the aggregation, call the `do_aggregrations.sh` script from the `BoxTheJets/` folder:
 
 ```bash
-./do_aggregations.sh
+scripts/do_aggregations.sh
 ```
 
 which will do the following
 
 1. Run the extraction on the `box-the-jets-classification.csv` file
-2. Squash the frames so that all the data is in one frame
+2. Squash the frames so that all the data is in one frame, and also create a separate datafile where the tasks (Jet 1 and 2) are merged together.
 3. Run the reducer which will cluster the data 
 
-
+Each set of files will be moved into their respective folder (extract files in `extracts/` and the HDBSCAN 
+reduced cluster data in `reductions/`)

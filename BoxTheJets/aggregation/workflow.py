@@ -152,11 +152,24 @@ class Aggregator:
             for i, subject in enumerate(clustered_subs):
                 self.plot_subject(subject, task)
 
+    def plot_subject_both(self, subject):
+        '''
+            Plots both tasks for a given subject
+        '''
+        fig, ax = plt.subplots(1,1, dpi=150)
+
+        self.plot_subject(subject, 'T1', ax)
+        self.plot_subject(subject, 'T5', ax)
+
+        fig.tight_layout()
+        plt.show()
+
     def plot_subject(self, subject, task, ax=None):
         '''
             Plot the data for a given subject/task 
         '''
         points_datai = self.points_data[:][(self.points_data['subject_id']==subject)&(self.points_data['task']==task)]
+
         # convert the data from the csv into an array
         try:
             x0_i = ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_points_x'][0])
@@ -239,7 +252,7 @@ class Aggregator:
         # plot the raw boxes with a gray line
         for j in range(len(x_i)):
             points = get_box_edges(x_i[j], y_i[j], w_i[j], h_i[j], np.radians(a_i[j]))
-            linewidthi = 0.2*pb_i[j]+0.05
+            linewidthi = 0.2*pb_i[j]+0.1
             ax.plot(points[:,0], points[:,1], '-', color='#aaa', linewidth=linewidthi)
             
         # plot the clustered box in blue
