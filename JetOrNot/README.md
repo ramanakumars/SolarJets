@@ -22,9 +22,9 @@ Now, we can generate the extracts from the classification data by doing:
 panoptes_aggregation extract solar-jet-hunter-classifications.csv Extractor_config_workflow_18563_V5.19.yaml -o jet_or_not
 ```
 
-This will generate the `question_extract_jet_or_not.csv` which contains all the extracts from the classification data. Note that for this workflow, this also includes the beta and charlie classifications, so we need to trim those. To do this run,
+This will generate the `question_extractor_jet_or_not.csv` which contains all the extracts from the classification data. Note that for this workflow, this also includes the beta and charlie classifications, so we need to trim those. To do this run,
 ```bash
-python3 trim_beta_classifications.py
+python3 trim_beta_classifications.py question_extractor_jet_or_not.csv
 ```
 
 This will produce a `question_extractor_trimmed.csv` which only contains classifications after Dec 7, 2021. This is what we will use for reductions
