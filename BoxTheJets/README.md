@@ -34,10 +34,10 @@ reducer_config:
 
 Move these files into the `configs/` folder. 
 
-This is to use the HDBSCAN algorithm rather than the default, and also allow the clustering pipeline to generate one cluster when the data is tightly packed. Now, to run the aggregation, call the `do_aggregrations.sh` script from the `BoxTheJets/` folder:
+This is to use the HDBSCAN algorithm rather than the default, and also allow the clustering pipeline to generate one cluster when the data is tightly packed. Now, to run the aggregation, call the `do_aggregration.sh` script from the `BoxTheJets/` folder:
 
 ```bash
-scripts/do_aggregations.sh
+scripts/do_aggregation.sh
 ```
 
 which will do the following
