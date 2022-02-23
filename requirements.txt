@@ -1,5 +1,5 @@
 # requirements for the Solar Jet Hunter zooniverse project
-numpy==1.20.0
+numpy==1.21.0
 scipy
 matplotlib
 astropy
