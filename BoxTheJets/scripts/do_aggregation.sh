@@ -1,5 +1,7 @@
 #!/bin/bash
 
+mkdir -p {extracts,reductions}/
+
 # first get the extracts
 cd extracts/;
 panoptes_aggregation extract ../box-the-jets-classifications.csv ../configs/Extractor_config_workflow_19650_V4.52.yaml -o box_the_jets

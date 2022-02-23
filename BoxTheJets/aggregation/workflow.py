@@ -539,7 +539,6 @@ class Aggregator:
         
         # plot this "histogram"
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 8), dpi=150, gridspec_kw={'height_ratios': [0.4, 1]})
-        
 
         ax1.plot(npoints_start, 'r-', label='Start')
         ax1.plot(npoints_box, 'g-', label='Box')
@@ -573,7 +572,6 @@ class Aggregator:
 
             This method assumes that clusters exist, and will raise a `ValueError` if clusters do not exist for 
             a given task. 
-
         '''
         points_datai = self.points_data[:][(self.points_data['subject_id']==subject)&(self.points_data['task']==task)]
         box_datai    = self.box_data[:][(self.box_data['subject_id']==subject)&(self.box_data['task']==task)]
@@ -660,3 +658,95 @@ class Aggregator:
             box_iou[i] = np.mean(ious)
 
         return start_dist, end_dist, box_iou
+
+    def get_box_data(self, subject, task):
+        # find all the clustered boxes for T1
+        box_data = self.box_data[:][(self.box_data['subject_id']==subject)&(self.box_data['task']==task)]
+
+        data = {}
+
+        data['x'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_x'][0])
+        data['y'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_y'][0])
+        data['w'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_width'][0])
+        data['h'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_height'][0])
+        data['a'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_angle'][0])
+
+        clusters = {}
+
+        clusters['x'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_x'][0])
+        clusters['y'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_y'][0])
+        clusters['w'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_width'][0])
+        clusters['h'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_height'][0])
+        clusters['a'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_angle'][0])
+        clusters['prob'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_probabilities'][0])
+        clusters['labels'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_labels'][0])
+
+        return data, clusters
+
+    def find_unique_jets(self, subject, clip_iou=0.5):
+        # get the box data and clusters for the two tasks
+        data_T1, clusters_T1 = self.get_box_data(subject, 'T1')
+        _, _, box_iou_T1     = self.get_cluster_confidence(subject, 'T1')
+        data_T5, clusters_T5 = self.get_box_data(subject, 'T5')
+        _, _, box_iou_T5     = self.get_cluster_confidence(subject, 'T5')
+
+        # combine the box data from the two tasks
+        combined_boxes = {}
+        for key in clusters_T1.keys():
+            combined_boxes[key] = [*clusters_T1[key], *clusters_T5[key]]
+
+        combined_boxes['iou'] = [*box_iou_T1, *box_iou_T5]
+
+        temp_clust_boxes = []
+        temp_box_ious    = []
+        for i in range(len(combined_boxes['x'])):
+            x = combined_boxes['x'][i]
+            y = combined_boxes['y'][i]
+            w = combined_boxes['w'][i]
+            h = combined_boxes['h'][i]
+            a = np.radians(combined_boxes['a'][i])
+            if combined_boxes['iou'][i] > 1.e-6:
+                temp_clust_boxes.append(Polygon(get_box_edges(x, y, w, h, a)[:4]))
+                temp_box_ious.append(combined_boxes['iou'][i])
+
+        temp_clust_boxes = np.asarray(temp_clust_boxes)
+        temp_box_ious    = np.asarray(temp_box_ious)
+
+        clust_boxes = []
+        while len(temp_clust_boxes) > 0:
+            nboxes = len(temp_clust_boxes)
+
+            box0 = temp_clust_boxes[0]
+
+            ious = np.ones(nboxes)
+
+            for j in range(1, nboxes):
+                bj = temp_clust_boxes[j]
+                ious[j] = box0.intersection(bj).area/box0.union(bj).area
+
+            iou_mask = ious > clip_iou
+
+            fig, ax = plt.subplots(1,1)
+            ax.imshow(get_subject_image(subject))
+            ax.plot(*box0.exterior.xy, 'b-')
+            for j in range(1, nboxes):
+                bj = temp_clust_boxes[j]
+                ax.plot(*bj.exterior.xy, 'r-')
+
+            # add the box with the best iou to the cluster list
+            clust_boxes.append(temp_clust_boxes[iou_mask][np.argmax(temp_box_ious[iou_mask])])
+
+            # and remove all the overlapping boxes from the list
+            temp_clust_boxes = np.delete(temp_clust_boxes, iou_mask)
+            temp_box_ious    = np.delete(temp_box_ious, iou_mask)
+
+
+        fig, ax = plt.subplots(1,1)
+        ax.imshow(get_subject_image(subject))
+        for box in clust_boxes:
+            ax.plot(*box.exterior.xy, 'b-')
+
+        plt.show()
+
+
+
