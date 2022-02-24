@@ -660,7 +660,25 @@ class Aggregator:
         return start_dist, end_dist, box_iou
 
     def get_box_data(self, subject, task):
-        # find all the clustered boxes for T1
+        '''
+            Get the box data and cluster shapes, and associated probabilities and labels
+            for a givens subject and task
+
+            Inputs
+            ------
+            subject : int
+                Subject ID in zooniverse
+            task : string
+                Either 'T1' or 'T5' for the first jet or second jet
+
+            Returns
+            -------
+            data : dict
+                Raw classification data for the x, y, width, height and angle (degrees)
+            clusters : dict
+                Cluster shape (x, y, width, height and angle) and probabilities and labels of the 
+                data points
+        '''
         box_data = self.box_data[:][(self.box_data['subject_id']==subject)&(self.box_data['task']==task)]
 
         data = {}
@@ -683,7 +701,22 @@ class Aggregator:
 
         return data, clusters
 
-    def find_unique_jets(self, subject, clip_iou=0.5):
+    def find_unique_jets(self, subject):
+        '''
+            Filters the box clusters for a subject from both T1 and T5
+            and finds a list of unique jets that have minimal overlap
+
+            Inputs
+            ------
+            subject : int
+                The subject ID in Zooniverse
+
+            Outputs
+            --------
+            clust_boxes : list
+                List of `shapely.Polygon` objects which correspond to 
+                the cluster box
+        '''
         # get the box data and clusters for the two tasks
         data_T1, clusters_T1 = self.get_box_data(subject, 'T1')
         _, _, box_iou_T1     = self.get_cluster_confidence(subject, 'T1')
@@ -697,6 +730,8 @@ class Aggregator:
 
         combined_boxes['iou'] = [*box_iou_T1, *box_iou_T5]
 
+        # add all the boxes to a bucket as long as they are 
+        # valid clusters (iou > 0)
         temp_clust_boxes = []
         temp_box_ious    = []
         for i in range(len(combined_boxes['x'])):
@@ -712,41 +747,44 @@ class Aggregator:
         temp_clust_boxes = np.asarray(temp_clust_boxes)
         temp_box_ious    = np.asarray(temp_box_ious)
 
+        # now loop over this bucket of polygons
+        # and see how well they match with each other
+        # we will move the "good" boxes to a new list
+        # so we can keep track of progress based on how 
+        # many items are still in the queue
         clust_boxes = []
         while len(temp_clust_boxes) > 0:
             nboxes = len(temp_clust_boxes)
 
+            # compare against the first box in the bucket
+            # this will get removed at the end of this loop
             box0 = temp_clust_boxes[0]
 
+            # to compare iou of box0 with other boxes
             ious = np.ones(nboxes)
 
+            # to see if box0 needs to be merged with another 
+            # box
+            merge_mask = [False]*nboxes
+            merge_mask[0] = True
+
             for j in range(1, nboxes):
+                # find IoU for box0 vs boxj
                 bj = temp_clust_boxes[j]
                 ious[j] = box0.intersection(bj).area/box0.union(bj).area
 
-            iou_mask = ious > clip_iou
-
-            fig, ax = plt.subplots(1,1)
-            ax.imshow(get_subject_image(subject))
-            ax.plot(*box0.exterior.xy, 'b-')
-            for j in range(1, nboxes):
-                bj = temp_clust_boxes[j]
-                ax.plot(*bj.exterior.xy, 'r-')
+                # if the IoU is better than the worst IoU of the classifications
+                # for either box, then we should merge these two
+                # this metric could be changed to be more robust in the future
+                if ious[j] > np.min([temp_box_ious[0], temp_box_ious[j]]):
+                    merge_mask[j] = True
 
             # add the box with the best iou to the cluster list
-            clust_boxes.append(temp_clust_boxes[iou_mask][np.argmax(temp_box_ious[iou_mask])])
+            clust_boxes.append(\
+                temp_clust_boxes[merge_mask][np.argmax(temp_box_ious[merge_mask])])
 
             # and remove all the overlapping boxes from the list
-            temp_clust_boxes = np.delete(temp_clust_boxes, iou_mask)
-            temp_box_ious    = np.delete(temp_box_ious, iou_mask)
+            temp_clust_boxes = np.delete(temp_clust_boxes, merge_mask)
+            temp_box_ious    = np.delete(temp_box_ious, merge_mask)
 
-
-        fig, ax = plt.subplots(1,1)
-        ax.imshow(get_subject_image(subject))
-        for box in clust_boxes:
-            ax.plot(*box.exterior.xy, 'b-')
-
-        plt.show()
-
-
-
+        return clust_boxes
