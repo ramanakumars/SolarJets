@@ -783,8 +783,116 @@ class Aggregator:
             clust_boxes.append(\
                 temp_clust_boxes[merge_mask][np.argmax(temp_box_ious[merge_mask])])
 
+            fig, ax = plt.subplots(1,1, dpi=150)
+            ax.imshow(get_subject_image(subject))
+            ax.plot(*box0.exterior.xy, 'b-')
+            for j in range(1, nboxes):
+                bj = temp_clust_boxes[j]
+                ax.plot(*bj.exterior.xy, 'k-', linewidth=0.5)
+            ax.axis('off')
+            plt.show()
+
+            # fig, ax = plt.subplots(1,1, dpi=150)
+            # ax.imshow(get_subject_image(subject))
+            # ax.plot(*box0.exterior.xy, 'b-')
+            # for j in range(1, nboxes):
+            #     bj = temp_clust_boxes[j]
+            #     if merge_mask[j]:
+            #         ax.plot(*bj.exterior.xy, 'k--', linewidth=0.5)
+            #     else:
+            #         ax.plot(*bj.exterior.xy, 'k-', linewidth=0.5)
+            # ax.axis('off')
+            # plt.show()
+
+
             # and remove all the overlapping boxes from the list
             temp_clust_boxes = np.delete(temp_clust_boxes, merge_mask)
             temp_box_ious    = np.delete(temp_box_ious, merge_mask)
 
+        # fig, ax = plt.subplots(1,1, dpi=150)
+        # ax.imshow(get_subject_image(subject))
+        # for box in clust_boxes:
+        #     ax.plot(*box.exterior.xy, 'b-')
+        # ax.axis('off')
+        # plt.show()
+
         return clust_boxes
+
+    def filter_classifications(self, subject):
+        '''
+            Find a list of unique jets in the subject
+            and segregate the classifications into each cluster 
+            based on IoU calculations
+
+            Inputs
+            ------
+            subject : int
+                The subject ID in Zooniverse
+
+            Returns
+            --------
+            filtered_box_data : list
+                List of dictionaries that have the classification info (x, y, w, h, a) 
+                for each box, separated by the cluster number. i.e. each index in the list is 
+                a different cluster, and each dictionary entry contains a list of values
+                that correspond to that cluster. 
+        '''
+        # get the box data and clusters for the two tasks
+        data_T1, _ = self.get_box_data(subject, 'T1')
+        data_T5, _ = self.get_box_data(subject, 'T5')
+        
+        # and the unique clusters
+        unique_jets = self.find_unique_jets(subject)
+
+        # combine the T1 and T5 raw data
+        combined_boxes = {}
+        filtered_box_data = [{} for i in range(len(unique_jets))]
+        for key in data_T1.keys():
+            combined_boxes[key] = [*data_T1[key], *data_T5[key]]
+            for j in range(len(unique_jets)):
+                filtered_box_data[j][key] = []
+
+        # loop through the classifications
+        for i in range(len(combined_boxes['x'])):
+            x = combined_boxes['x'][i]
+            y = combined_boxes['y'][i]
+            w = combined_boxes['w'][i]
+            h = combined_boxes['h'][i]
+            a = np.radians(combined_boxes['a'][i])
+
+            # get the box
+            boxi = Polygon(get_box_edges(x, y, w, h, a)[:4])
+
+            # and the find the iou of this box wrt to the 
+            # unique jet clusters
+            ious = np.zeros(len(unique_jets))
+            for j, jet in enumerate(unique_jets):
+                ious[j] = boxi.intersection(jet).area/boxi.union(jet).area
+
+            # we're going to find the "best" cluster i.e., the one with the 
+            # highest IoU
+            index = np.argmax(ious)
+
+            # and add the raw data to that cluster
+            for key in data_T1.keys():
+                filtered_box_data[index][key].append(combined_boxes[key][i])
+
+        # for j, jet in enumerate(unique_jets):
+        #     fig, ax = plt.subplots(1,1, dpi=150)
+        #     ax.imshow(get_subject_image(subject))
+        #     ax.plot(*jet.exterior.xy, 'b-')
+        #     box_data_j = filtered_box_data[j]
+        #     for i in range(len(box_data_j['x'])):
+        #         x = box_data_j['x'][i]
+        #         y = box_data_j['y'][i]
+        #         w = box_data_j['w'][i]
+        #         h = box_data_j['h'][i]
+        #         a = np.radians(box_data_j['a'][i])
+
+        #         boxi = Polygon(get_box_edges(x, y, w, h, a)[:4])
+        #         ax.plot(*boxi.exterior.xy, '-', color='gray', linewidth=0.5)
+        #         ax.axis('off')
+
+        #     plt.show()
+
+        return filtered_box_data
