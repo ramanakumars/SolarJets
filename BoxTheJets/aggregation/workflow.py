@@ -572,35 +572,36 @@ class Aggregator:
             This method assumes that clusters exist, and will raise a `ValueError` if clusters do not exist for 
             a given task. 
         '''
-        points_datai = self.points_data[:][(self.points_data['subject_id']==subject)&(self.points_data['task']==task)]
-        box_datai    = self.box_data[:][(self.box_data['subject_id']==subject)&(self.box_data['task']==task)]
-
         # convert the data from the csv into an array
-        x0 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_points_x'][0]))
-        y0 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_points_y'][0]))
-        x1 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_points_x'][0]))
-        y1 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_points_y'][0]))
-        
-        x = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_x'][0]))
-        y = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_y'][0]))
-        w = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_width'][0]))
-        h = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_height'][0]))
-        a = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_angle'][0]))
-        
-        cx0 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_clusters_x'][0]))
-        cy0 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_clusters_y'][0]))
-        cl0 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_cluster_labels'][0]))
+        points_data, point_clust = self.get_points_data(subject, task)
+        box_data, box_clust = self.get_box_data(subject, task)
     
-        cx1 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_clusters_x'][0]))
-        cy1 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_clusters_y'][0]))
-        cl1 = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_cluster_labels'][0]))
-    
-        cx = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_x'][0]))
-        cy = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_y'][0]))
-        cw = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_width'][0]))
-        ch = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_height'][0]))
-        ca = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_angle'][0]))
-        clb = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_cluster_labels'][0]))
+
+        x0 = points_data['xs']
+        y0 = points_data['ys']
+        x1 = points_data['xe']
+        y1 = points_data['ye']
+        
+        x = box_data['x']
+        y = box_data['y']
+        w = box_data['w']
+        h = box_data['h']
+        a = box_data['a']
+        
+        cx0 = np.asarray(point_clust['xs'])
+        cy0 = np.asarray(point_clust['ys'])
+        cl0 = np.asarray(point_clust['labels_s'])
+        
+        cx1 = np.asarray(point_clust['xe'])
+        cy1 = np.asarray(point_clust['ye'])
+        cl1 = np.asarray(point_clust['labels_e'])
+        
+        cx = np.asarray(box_clust['x'])
+        cy = np.asarray(box_clust['y'])
+        cw = np.asarray(box_clust['w'])
+        ch = np.asarray(box_clust['h'])
+        ca = np.asarray(box_clust['a'])
+        clb = np.asarray(box_clust['labels'])
 
         # get distances for the start points
         start_dist = np.zeros(len(cx0))
@@ -658,6 +659,48 @@ class Aggregator:
 
         return start_dist, end_dist, box_iou
 
+    def get_points_data(self, subject, task):
+        '''
+            Get the points data and cluster, and associated probabilities and labels
+            for a givens subject and task. s corresponds to the start and e corresponds to end
+
+            Inputs
+            ------
+            subject : int
+                Subject ID in zooniverse
+            task : string
+                Either 'T1' or 'T5' for the first jet or second jet
+
+            Returns
+            -------
+            data : dict
+                Raw classification data for the x, y (xs, ys for the start and xe, ye for the end)
+            clusters : dict
+                Cluster shape (x, y) for start and end and probabilities and labels of the 
+                data points
+        '''
+        points_data = self.points_data[:][(self.points_data['subject_id']==subject)&(self.points_data['task']==task)]
+
+        data = {}
+
+        data['xs'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_x'][0]))
+        data['ys'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_y'][0]))
+        data['xe'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_x'][0]))
+        data['ye'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_y'][0]))
+
+        clusters = {}
+        clusters['xs'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_x'][0]))
+        clusters['ys'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_y'][0]))
+        clusters['xe'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_x'][0]))
+        clusters['ye'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_y'][0]))
+
+        clusters['prob_s']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_probabilities'][0]))
+        clusters['labels_s'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_labels'][0]))
+        clusters['prob_e']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
+        clusters['labels_e'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_labels'][0]))
+
+        return data, clusters
+
     def get_box_data(self, subject, task):
         '''
             Get the box data and cluster shapes, and associated probabilities and labels
@@ -682,21 +725,21 @@ class Aggregator:
 
         data = {}
 
-        data['x'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_x'][0])
-        data['y'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_y'][0])
-        data['w'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_width'][0])
-        data['h'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_height'][0])
-        data['a'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_angle'][0])
+        data['x'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_x'][0]))
+        data['y'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_y'][0]))
+        data['w'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_width'][0]))
+        data['h'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_height'][0]))
+        data['a'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_angle'][0]))
 
         clusters = {}
 
-        clusters['x'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_x'][0])
-        clusters['y'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_y'][0])
-        clusters['w'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_width'][0])
-        clusters['h'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_height'][0])
-        clusters['a'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_angle'][0])
-        clusters['prob'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_probabilities'][0])
-        clusters['labels'] = ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_labels'][0])
+        clusters['x'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_x'][0]))
+        clusters['y'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_y'][0]))
+        clusters['w'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_width'][0]))
+        clusters['h'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_height'][0]))
+        clusters['a'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_angle'][0]))
+        clusters['prob'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_probabilities'][0]))
+        clusters['labels'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_labels'][0]))
 
         return data, clusters
 
