@@ -38,13 +38,13 @@ def get_box_edges(x, y, w, h, a):
     corners = np.matmul(original_points - centre, rotation) + centre
     return corners
 
-def get_subject_image(subject): 
+def get_subject_image(subject, frame=7): 
     # get the subject metadata from Panoptes
     subjecti = Subject(int(subject))
     try:
-        frame0_url = subjecti.raw['locations'][7]['image/png']
+        frame0_url = subjecti.raw['locations'][frame]['image/png']
     except KeyError:
-        frame0_url = subjecti.raw['locations'][7]['image/jpeg']
+        frame0_url = subjecti.raw['locations'][frame]['image/jpeg']
     
     img = io.imread(frame0_url)
 
@@ -701,7 +701,7 @@ class Aggregator:
 
         return data, clusters
 
-    def find_unique_jets(self, subject):
+    def find_unique_jets(self, subject, plot=False):
         '''
             Filters the box clusters for a subject from both T1 and T5
             and finds a list of unique jets that have minimal overlap
@@ -710,6 +710,9 @@ class Aggregator:
             ------
             subject : int
                 The subject ID in Zooniverse
+
+            plot : bool
+                Flag for whether to plot the boxes or not
 
             Outputs
             --------
@@ -783,14 +786,15 @@ class Aggregator:
             clust_boxes.append(\
                 temp_clust_boxes[merge_mask][np.argmax(temp_box_ious[merge_mask])])
 
-            fig, ax = plt.subplots(1,1, dpi=150)
-            ax.imshow(get_subject_image(subject))
-            ax.plot(*box0.exterior.xy, 'b-')
-            for j in range(1, nboxes):
-                bj = temp_clust_boxes[j]
-                ax.plot(*bj.exterior.xy, 'k-', linewidth=0.5)
-            ax.axis('off')
-            plt.show()
+            if plot:
+                fig, ax = plt.subplots(1,1, dpi=150)
+                ax.imshow(get_subject_image(subject))
+                ax.plot(*box0.exterior.xy, 'b-')
+                for j in range(1, nboxes):
+                    bj = temp_clust_boxes[j]
+                    ax.plot(*bj.exterior.xy, 'k-', linewidth=0.5)
+                ax.axis('off')
+                plt.show()
 
             # fig, ax = plt.subplots(1,1, dpi=150)
             # ax.imshow(get_subject_image(subject))
@@ -836,6 +840,9 @@ class Aggregator:
                 for each box, separated by the cluster number. i.e. each index in the list is 
                 a different cluster, and each dictionary entry contains a list of values
                 that correspond to that cluster. 
+            unique_jets : list
+                List of `shapely.geometry.Polygon` objects that define the rectangle for
+                the best box for each cluster
         '''
         # get the box data and clusters for the two tasks
         data_T1, _ = self.get_box_data(subject, 'T1')
@@ -895,4 +902,4 @@ class Aggregator:
 
         #     plt.show()
 
-        return filtered_box_data
+        return filtered_box_data, unique_jets
