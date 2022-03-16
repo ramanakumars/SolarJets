@@ -50,7 +50,6 @@ def get_subject_image(subject, frame=7):
 
     return img
 
-
 def get_point_distance(x0, y0, x1, y1):
     return np.sqrt((x0-x1)**2. + (y0-y1)**2.)
 
@@ -324,7 +323,6 @@ class Aggregator:
                     # and continue to the next subject
                     self.retired_subjects.append(subject)
                     break
-        
 
     def load_extractor_data(self, point_extractor_file='point_extractor_by_frame_box_the_jets.csv', \
         box_extractor_file='shape_extractor_rotateRectangle_box_the_jets.csv'):
@@ -436,7 +434,8 @@ class Aggregator:
         start_score = [np.sum(starti) for starti in start_weights]
         end_score   = [np.sum(endi) for endi in end_weights]
 
-        return {'start': start_frames, 'start_score': start_score, 'end': end_frames, 'end_score': end_score}
+        return {'start': start_frames, 'start_score': start_score, 'start_best': np.argmax(start_score), 
+                'end': end_frames, 'end_score': end_score, 'end_best': np.argmax(end_score)}
 
     def get_frame_time_box(self, subject, task='T1'):
         '''
@@ -795,30 +794,10 @@ class Aggregator:
                     ax.plot(*bj.exterior.xy, 'k-', linewidth=0.5)
                 ax.axis('off')
                 plt.show()
-
-            # fig, ax = plt.subplots(1,1, dpi=150)
-            # ax.imshow(get_subject_image(subject))
-            # ax.plot(*box0.exterior.xy, 'b-')
-            # for j in range(1, nboxes):
-            #     bj = temp_clust_boxes[j]
-            #     if merge_mask[j]:
-            #         ax.plot(*bj.exterior.xy, 'k--', linewidth=0.5)
-            #     else:
-            #         ax.plot(*bj.exterior.xy, 'k-', linewidth=0.5)
-            # ax.axis('off')
-            # plt.show()
-
-
+            
             # and remove all the overlapping boxes from the list
             temp_clust_boxes = np.delete(temp_clust_boxes, merge_mask)
             temp_box_ious    = np.delete(temp_box_ious, merge_mask)
-
-        # fig, ax = plt.subplots(1,1, dpi=150)
-        # ax.imshow(get_subject_image(subject))
-        # for box in clust_boxes:
-        #     ax.plot(*box.exterior.xy, 'b-')
-        # ax.axis('off')
-        # plt.show()
 
         return clust_boxes
 
@@ -895,11 +874,9 @@ class Aggregator:
         #         w = box_data_j['w'][i]
         #         h = box_data_j['h'][i]
         #         a = np.radians(box_data_j['a'][i])
-
         #         boxi = Polygon(get_box_edges(x, y, w, h, a)[:4])
         #         ax.plot(*boxi.exterior.xy, '-', color='gray', linewidth=0.5)
         #         ax.axis('off')
-
         #     plt.show()
 
         return filtered_box_data, unique_jets
