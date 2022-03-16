@@ -4,6 +4,7 @@ scipy
 matplotlib
 astropy
 scikit-image
+scikit-learn
 panoptes_aggregation
 panoptes-client
 shapely
