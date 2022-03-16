@@ -7,7 +7,7 @@ import json
 from panoptes_client import Panoptes, Subject, Workflow
 from skimage import io
 import getpass
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, Point
 
 def connect_panoptes():
     '''
@@ -577,10 +577,10 @@ class Aggregator:
         box_data, box_clust = self.get_box_data(subject, task)
     
 
-        x0 = points_data['xs']
-        y0 = points_data['ys']
-        x1 = points_data['xe']
-        y1 = points_data['ye']
+        x0 = points_data['x_start']
+        y0 = points_data['y_start']
+        x1 = points_data['x_end']
+        y1 = points_data['y_end']
         
         x = box_data['x']
         y = box_data['y']
@@ -588,13 +588,13 @@ class Aggregator:
         h = box_data['h']
         a = box_data['a']
         
-        cx0 = np.asarray(point_clust['xs'])
-        cy0 = np.asarray(point_clust['ys'])
-        cl0 = np.asarray(point_clust['labels_s'])
+        cx0 = np.asarray(point_clust['x_start'])
+        cy0 = np.asarray(point_clust['y_start'])
+        cl0 = np.asarray(point_clust['labels_start'])
         
-        cx1 = np.asarray(point_clust['xe'])
-        cy1 = np.asarray(point_clust['ye'])
-        cl1 = np.asarray(point_clust['labels_e'])
+        cx1 = np.asarray(point_clust['x_end'])
+        cy1 = np.asarray(point_clust['y_end'])
+        cl1 = np.asarray(point_clust['labels_end'])
         
         cx = np.asarray(box_clust['x'])
         cy = np.asarray(box_clust['y'])
@@ -683,21 +683,21 @@ class Aggregator:
 
         data = {}
 
-        data['xs'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_x'][0]))
-        data['ys'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_y'][0]))
-        data['xe'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_x'][0]))
-        data['ye'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_y'][0]))
+        data['x_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_x'][0]))
+        data['y_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_y'][0]))
+        data['x_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_x'][0]))
+        data['y_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_y'][0]))
 
         clusters = {}
-        clusters['xs'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_x'][0]))
-        clusters['ys'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_y'][0]))
-        clusters['xe'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_x'][0]))
-        clusters['ye'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_y'][0]))
+        clusters['x_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_x'][0]))
+        clusters['y_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_y'][0]))
+        clusters['x_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_x'][0]))
+        clusters['y_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_y'][0]))
 
-        clusters['prob_s']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_probabilities'][0]))
-        clusters['labels_s'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_labels'][0]))
-        clusters['prob_e']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
-        clusters['labels_e'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_labels'][0]))
+        clusters['prob_start']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_probabilities'][0]))
+        clusters['labels_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_labels'][0]))
+        clusters['prob_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
+        clusters['labels_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_labels'][0]))
 
         return data, clusters
 
@@ -844,6 +844,159 @@ class Aggregator:
 
         return clust_boxes
 
+    def find_unique_jet_points(self, subject, plot=False):
+        # get the box data and clusters for the two tasks
+        data_T1, clusters_T1 = self.get_points_data(subject, 'T1')
+        start_dist_T1, end_dist_T1, _  = self.get_cluster_confidence(subject, 'T1')
+        data_T5, clusters_T5 = self.get_points_data(subject, 'T5')
+        start_dist_T5, end_dist_T5, _  = self.get_cluster_confidence(subject, 'T5')
+
+        # combine the box data from the two tasks
+        combined_starts = {}
+        combined_ends   = {}
+        for key in clusters_T1.keys():
+            key_new = key.replace('_start','').replace('_end','')
+            if 'start' in key:
+                combined_starts[key_new] = [*clusters_T1[key], *clusters_T5[key]]
+            elif 'end' in key:
+                combined_ends[key_new]   = [*clusters_T1[key], *clusters_T5[key]]
+
+        combined_starts['dist'] = [*start_dist_T1, *start_dist_T5]
+        combined_ends['dist']   = [*end_dist_T1, *end_dist_T5]
+
+        # add all the start points to a bucket 
+        temp_clust_starts = []
+        temp_start_dists  = []
+        for i in range(len(combined_starts['x'])):
+            x = combined_starts['x'][i]
+            y = combined_starts['y'][i]
+            temp_clust_starts.append([x,y])
+            temp_start_dists.append(combined_starts['dist'][i])
+
+        temp_clust_starts = np.asarray(temp_clust_starts)
+        temp_start_dists  = np.asarray(temp_start_dists)
+        
+        temp_clust_ends = []
+        temp_end_dists  = []
+        for i in range(len(combined_ends['x'])):
+            x = combined_ends['x'][i]
+            y = combined_ends['y'][i]
+            temp_clust_ends.append([x,y])
+            temp_end_dists.append(combined_ends['dist'][i])
+
+        temp_clust_ends = np.asarray(temp_clust_ends)
+        temp_end_dists  = np.asarray(temp_end_dists)
+
+        # now loop over this bucket of start points
+        # and see how well they match with each other
+        # we will move the "good" points to a new list
+        # so we can keep track of progress based on how 
+        # many items are still in the queue
+        clust_starts = []
+        while len(temp_clust_starts) > 0:
+            npoints = len(temp_clust_starts)
+
+            # compare against the first point in the bucket
+            # this will get removed at the end of this loop
+            start0 = temp_clust_starts[0]
+
+            # to compare distance of this 0th point with other points
+            dists = np.zeros(npoints)
+
+            # to see if start0 needs to be merged with another point
+            merge_mask = [False]*npoints
+
+            # we will always remove this first point from the queue
+            merge_mask[0] = True
+
+            for j in range(1, npoints):
+                # find distance for the first and jth point
+                pointj = temp_clust_starts[j]
+                dists[j] = get_point_distance(*start0, *pointj)
+
+                # if the distance is better than the 1.5x the mean distance of 
+                # point that make up this cluster, then we should merge these two
+                # this metric could be changed to be more robust in the future
+                if dists[j] < 1.5*np.max([temp_start_dists[0], temp_start_dists[j]]):
+                    merge_mask[j] = True
+
+            # add the point with the most compact intra-cluster distance to the cluster list
+            clust_starts.append(\
+                temp_clust_starts[merge_mask][np.argmin(temp_start_dists[merge_mask])])
+
+            if plot:
+                fig, ax = plt.subplots(1,1, dpi=150)
+                ax.imshow(get_subject_image(subject))
+
+                cir = Point(*start0).buffer(1.5*temp_start_dists[0])
+                ax.plot(*start0, 'bx')
+                ax.plot(*cir.exterior.xy, 'k-', linewidth=0.5)
+                for j in range(1, npoints):
+                    pointj = temp_clust_starts[j]
+                    ax.plot(*pointj, 'kx')
+                    cir = Point(*pointj).buffer(1.5*temp_start_dists[j])
+                    ax.plot(*cir.exterior.xy, 'k-', linewidth=0.5)
+                ax.axis('off')
+                plt.show()
+            
+            # and remove all the merged points from the list
+            temp_clust_starts = np.delete(temp_clust_starts, merge_mask, axis=0)
+            temp_start_dists  = np.delete(temp_start_dists, merge_mask)
+        
+        # repeat for the end points
+        clust_ends = []
+        while len(temp_clust_ends) > 0:
+            npoints = len(temp_clust_ends)
+
+            # compare against the first point in the bucket
+            # this will get removed at the end of this loop
+            end0 = temp_clust_ends[0]
+
+            # to compare distance of this 0th point with other points
+            dists = np.zeros(npoints)
+
+            # to see if end0 needs to be merged with another point
+            merge_mask = [False]*npoints
+
+            # we will always remove this first point from the queue
+            merge_mask[0] = True
+
+            for j in range(1, npoints):
+                # find distance for the first and jth point
+                pointj = temp_clust_ends[j]
+                dists[j] = get_point_distance(*end0, *pointj)
+
+                # if the distance is better than the 1.5x the mean distance of 
+                # point that make up this cluster, then we should merge these two
+                # this metric could be changed to be more robust in the future
+                if dists[j] < 1.5*np.max([temp_end_dists[0], temp_end_dists[j]]):
+                    merge_mask[j] = True
+
+            # add the point with the most compact intra-cluster distance to the cluster list
+            clust_ends.append(\
+                temp_clust_ends[merge_mask][np.argmin(temp_end_dists[merge_mask])])
+
+            if plot:
+                fig, ax = plt.subplots(1,1, dpi=150)
+                ax.imshow(get_subject_image(subject))
+
+                cir = Point(*end0).buffer(1.5*temp_end_dists[0])
+                ax.plot(*end0, 'yx')
+                ax.plot(*cir.exterior.xy, 'k-', linewidth=0.5)
+                for j in range(1, npoints):
+                    pointj = temp_clust_ends[j]
+                    ax.plot(*pointj, 'kx')
+                    cir = Point(*pointj).buffer(1.5*temp_end_dists[j])
+                    ax.plot(*cir.exterior.xy, 'k-', linewidth=0.5)
+                ax.axis('off')
+                plt.show()
+            
+            # and remove all the merged points from the list
+            temp_clust_ends = np.delete(temp_clust_ends, merge_mask, axis=0)
+            temp_end_dists  = np.delete(temp_end_dists, merge_mask)
+
+        return clust_starts, clust_ends
+            
     def filter_classifications(self, subject):
         '''
             Find a list of unique jets in the subject
@@ -872,6 +1025,7 @@ class Aggregator:
         
         # and the unique clusters
         unique_jets = self.find_unique_jets(subject)
+        unique_starts, unique_ends = self.find_unique_jet_points(subject)
 
         # combine the T1 and T5 raw data
         combined_boxes = {}
