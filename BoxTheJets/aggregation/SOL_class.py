@@ -17,7 +17,7 @@ import datetime
 from matplotlib.dates import DateFormatter
 from aggregation import Aggregator
 
-SOL_small,SOL_subjects,times,Num,start,end,notes=np.loadtxt('SOL/SOL_{}_stats.csv'.format('Tc'),delimiter=',',unpack=True,dtype=str)
+SOL_small,SOL_subjects,filenames0,times,Num,start,end,notes=np.loadtxt('SOL/SOL_{}_stats.csv'.format('Tc'),delimiter=',',unpack=True,dtype=str)
 Num=Num.astype(float)
 aggregator = Aggregator('reductions/point_reducer_hdbscan_box_the_jets.csv', 
                         'reductions/shape_reducer_hdbscan_box_the_jets.csv')
@@ -107,7 +107,7 @@ class SOL:
         '''
         i=np.argwhere(SOL_small==self.SOL_event)[0][0]
         T=[a + 'T'+ b for a, b in zip(times[i].split(' ')[::2],times[i].split(' ')[1::2])]
-        obs_time=[parse(T[t]) for t in range(len(T))]
+        obs_time=np.array([parse(T[t]) for t in range(len(T))],dtype='datetime64')
         return obs_time
         
     def get_start_end_time(self):
@@ -120,12 +120,12 @@ class SOL:
         '''
         i=np.argwhere(SOL_small==self.SOL_event)[0][0]
         S=[a + 'T'+ b for a, b in zip(start[i].split(' ')[::2],start[i].split(' ')[1::2])]
-        start_time=[parse(S[t]) for t in range(len(S))]
+        start_time=np.array([parse(S[t]) for t in range(len(S))],dtype='datetime64')
         E=[a + 'T'+ b for a, b in zip(end[i].split(' ')[::2],end[i].split(' ')[1::2])]
-        end_time=[parse(E[t]) for t in range(len(E))]    
+        end_time=np.array([parse(E[t]) for t in range(len(E))],dtype='datetime64')    
         return start_time, end_time
     
-    def get_box_dim(self):  
+    def get_box_dim(self,p=True):  
         '''
         Get the height and width arrays of the subjects inside a given SOL event
         '''
@@ -146,12 +146,14 @@ class SOL:
                     #print(width,height)
                     
                 except:
-                    print('No box size available')
+                    if p==True:
+                        print('No box size available')
                     W=np.append(W,0)
                     H=np.append(H,0)
     
             else:
-                print(f"{subject} has no classification data!")
+                if p==True:
+                    print(f"{subject} has no classification data!")
                 W=np.append(W,0)
                 H=np.append(H,0)
                 
