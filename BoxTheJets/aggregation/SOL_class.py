@@ -17,12 +17,12 @@ import datetime
 from matplotlib.dates import DateFormatter
 from aggregation import Aggregator
 
-SOL_small,SOL_subjects,filenames0,times,Num,start,end,notes=np.loadtxt('SOL/SOL_{}_stats.csv'.format('Tc'),delimiter=',',unpack=True,dtype=str)
-Num=Num.astype(float)
-aggregator = Aggregator('reductions/point_reducer_hdbscan_box_the_jets.csv', 
-                        'reductions/shape_reducer_hdbscan_box_the_jets.csv')
-aggregator.load_extractor_data('extracts/point_extractor_by_frame_box_the_jets.csv',
-                               'extracts/shape_extractor_rotateRectangle_box_the_jets.csv')
+#SOL_small,SOL_subjects,filenames0,times,Num,start,end,notes=np.loadtxt('SOL/SOL_{}_stats.csv'.format('Tc'),delimiter=',',unpack=True,dtype=str)
+#Num=Num.astype(float)
+#aggregator = Aggregator('reductions/point_reducer_hdbscan_box_the_jets.csv', 
+#                        'reductions/shape_reducer_hdbscan_box_the_jets.csv')
+#aggregator.load_extractor_data('extracts/point_extractor_by_frame_box_the_jets.csv',
+#                               'extracts/shape_extractor_rotateRectangle_box_the_jets.csv')
 
 def get_h_w_clusterbox(subject, task='T1'):
     '''
@@ -42,7 +42,7 @@ class SOL:
     '''
         Single data class to handle all function related to a HEK/SOL_event
     '''
-    def __init__(self, SOL_event):
+    def __init__(self, SOL_stats_file, aggregator):
         '''
             Inputs
             ------
@@ -52,9 +52,12 @@ class SOL:
                 format: 'SOLyyyy-mm-ddThh:mm:ssL000C000'
 
         '''
-        self.SOL_event= SOL_event
+        self.SOL_small, self.SOL_subjects, self.times, self.Num, \
+            self.start, self.end, self.notes = \
+            np.loadtxt(SOL_stats_file, delimiter=',',unpack=True,dtype=str)
+        self.aggregator = aggregator
     
-    def event_bar_plot(self,task='Tc'):
+    def event_bar_plot(self, SOL_event, task='Tc'):
         '''   
         Show the bar plot, indicating locations of jets for a given SOL event
         Produced by SOL_analytics.ipynb
@@ -63,10 +66,10 @@ class SOL:
             the task key (from Zooniverse)
             default Tc (combined results of task T0 and T3)
         '''
-        fig = Image(filename=('SOL/Agreement_SOL_'+task+'/'+self.SOL_event.replace(':','-')+'.png'))
+        fig = Image(filename=('SOL/Agreement_SOL_'+task+'/'+SOL_event.replace(':','-')+'.png'))
         display(fig)
         
-    def get_subjects(self):
+    def get_subjects(self, SOL_event):
         '''
         Get the subjects that correspond to a given SOL event
         
@@ -77,40 +80,40 @@ class SOL:
         SOL_small,SOL_subjects,times,Num,start,end,notes=np.loadtxt('path/SOL/SOL_{}_stats.csv'.format('Tc'),delimiter=',',unpack=True,dtype=str)
         Num=Num.astype(float)
         '''
-        i=np.argwhere(SOL_small==self.SOL_event)[0][0]
-        subjects=np.fromstring(SOL_subjects[i], dtype=int, sep=' ')
+        i=np.argwhere(self.SOL_small==SOL_event)[0][0]
+        subjects=np.fromstring(self.SOL_subjects[i], dtype=int, sep=' ')
         
         return subjects   
     
-    
-    def plot_subjects(self):  
-        '''
-    Plot all the subjects with aggregation data of a given SOL event
-        '''
-        subjects=self.get_subjects()
-        obs_time=self.get_obs_time()
-
-        for subject in subjects:
-            ## check to make sure that these subjects had classification
-            subject_rows = aggregator.points_data[:][aggregator.points_data['subject_id']==subject]
-            nsubjects = len(subject_rows['data.frame0.T1_tool0_points_x'])
-            if nsubjects > 0:
-                #aggregator.plot_subject(subject, task='T1')
-                aggregator.plot_frame_info(subject, task='T1')
-
-    def get_obs_time(self):
+    def get_obs_time(self, SOL_event):
         '''
         Get the observation times of a given SOL event
         
         times: start observation times for subjects in a SOL event
         saved in SOL_Tc_stats.csv
         '''
-        i=np.argwhere(SOL_small==self.SOL_event)[0][0]
-        T=[a + 'T'+ b for a, b in zip(times[i].split(' ')[::2],times[i].split(' ')[1::2])]
+        i=np.argwhere(self.SOL_small==SOL_event)[0][0]
+        T=[a + 'T'+ b for a, b in zip(self.times[i].split(' ')[::2],self.times[i].split(' ')[1::2])]
         obs_time=np.array([parse(T[t]) for t in range(len(T))],dtype='datetime64')
         return obs_time
+    
+    def plot_subjects(self, SOL_event):  
+        '''
+        Plot all the subjects with aggregation data of a given SOL event
+        '''
+        subjects=self.get_subjects(SOL_event)
+        obs_time=self.get_obs_time(SOL_event)
+
+        for subject in subjects:
+            ## check to make sure that these subjects had classification
+            subject_rows = self.aggregator.points_data[:][self.aggregator.points_data['subject_id']==subject]
+            nsubjects = len(subject_rows['data.frame0.T1_tool0_points_x'])
+            if nsubjects > 0:
+                #aggregator.plot_subject(subject, task='T1')
+                self.aggregator.plot_frame_info(subject, task='T1')
+
         
-    def get_start_end_time(self):
+    def get_start_end_time(self, SOL_event):
         '''
         Get the start and end times of jet clusters in given SOL event
         
@@ -118,25 +121,25 @@ class SOL:
         end: end time subject with jet
         saved in SOL_Tc_stats.csv
         '''
-        i=np.argwhere(SOL_small==self.SOL_event)[0][0]
-        S=[a + 'T'+ b for a, b in zip(start[i].split(' ')[::2],start[i].split(' ')[1::2])]
+        i=np.argwhere(self.SOL_small==SOL_event)[0][0]
+        S=[a + 'T'+ b for a, b in zip(self.start[i].split(' ')[::2], self.start[i].split(' ')[1::2])]
         start_time=np.array([parse(S[t]) for t in range(len(S))],dtype='datetime64')
-        E=[a + 'T'+ b for a, b in zip(end[i].split(' ')[::2],end[i].split(' ')[1::2])]
+        E=[a + 'T'+ b for a, b in zip(self.end[i].split(' ')[::2], self.end[i].split(' ')[1::2])]
         end_time=np.array([parse(E[t]) for t in range(len(E))],dtype='datetime64')    
         return start_time, end_time
     
-    def get_box_dim(self,p=True):  
+    def get_box_dim(self,SOL_event, p=True):  
         '''
         Get the height and width arrays of the subjects inside a given SOL event
         '''
-        subjects=self.get_subjects()
-        obs_time=self.get_obs_time()
+        subjects=self.get_subjects(SOL_event)
+        obs_time=self.get_obs_time(SOL_event)
         W=np.array([])
         H=np.array([])
     
         for subject in subjects:
             ## check to make sure that these subjects had classification
-            subject_rows = aggregator.points_data[:][aggregator.points_data['subject_id']==subject]
+            subject_rows = self.aggregator.points_data[:][self.aggregator.points_data['subject_id']==subject]
             nsubjects = len(subject_rows['data.frame0.T1_tool0_points_x'])
             if nsubjects > 0:
                 try:
@@ -159,17 +162,14 @@ class SOL:
                 
         return H,W    
 
-
-
-    
-    def box_height_width_plot(self,height,width,save=False):
+    def box_height_width_plot(self,SOL_event, height,width,save=False):
         '''
-    Plot the heigth and width evolution over time in a SOL event
-    
-    height: np.array with height box per subject
-    width: np.array with width box per subject
+        Plot the heigth and width evolution over time in a SOL event
+        
+        height: np.array with height box per subject
+        width: np.array with width box per subject
         '''
-        obs_time=self.get_obs_time()
+        obs_time=self.get_obs_time(SOL_event)
         fig, (ax1, ax2) = plt.subplots(2,dpi=150,figsize=(4.8,4),sharex=True)
         x1, y1 = zip(*sorted(zip(obs_time, height)))
         x2, y2 = zip(*sorted(zip(obs_time, width)))
@@ -179,7 +179,7 @@ class SOL:
         ax2.xaxis.set_major_formatter(date_form)
         plt.xticks(rotation=45)
         ax1.set_ylabel('Height (pix)')
-        ax1.set_title(self.SOL_event)
+        ax1.set_title(SOL_event)
         ax2.set_ylabel('Width (pix)')
         ax1.set_ylim(0,np.max(np.maximum(height,width))+30)
         ax2.set_ylim(0,np.max(np.maximum(height,width))+30)
@@ -196,8 +196,8 @@ class SOL:
         plt.show()
         
         
-    def event_box_plot(self):
-        fig = Image(filename=('SOL/SOL_Box_size/'+self.SOL_event.replace(':','-')+'.png'))
+    def event_box_plot(self, SOL_event):
+        fig = Image(filename=('SOL/SOL_Box_size/'+SOL_event.replace(':','-')+'.png'))
         display(fig)
             
             
