@@ -17,13 +17,6 @@ import datetime
 from matplotlib.dates import DateFormatter
 from aggregation import Aggregator
 
-SOL_small,SOL_subjects,filenames0,times,Num,start,end,notes=np.loadtxt('SOL/SOL_{}_stats.csv'.format('Tc'),delimiter=',',unpack=True,dtype=str)
-Num=Num.astype(float)
-aggregator = Aggregator('reductions/point_reducer_hdbscan_box_the_jets.csv', 
-                        'reductions/shape_reducer_hdbscan_box_the_jets.csv')
-aggregator.load_extractor_data('extracts/point_extractor_by_frame_box_the_jets.csv',
-                               'extracts/shape_extractor_rotateRectangle_box_the_jets.csv')
-
 def get_h_w_clusterbox(subject, task='T1'):
     '''
     Get the dimensions of the cluster box for a given subject
