@@ -97,6 +97,89 @@ class Aggregator:
         for col in self.points_data.colnames:
             self.points_data[col].fill_value = 'None'
 
+    def get_points_data(self, subject, task):
+        '''
+            Get the points data and cluster, and associated probabilities and labels
+            for a givens subject and task. s corresponds to the start and e corresponds to end
+
+            Inputs
+            ------
+            subject : int
+                Subject ID in zooniverse
+            task : string
+                Either 'T1' or 'T5' for the first jet or second jet
+
+            Returns
+            -------
+            data : dict
+                Raw classification data for the x, y (xs, ys for the start and xe, ye for the end)
+            clusters : dict
+                Cluster shape (x, y) for start and end and probabilities and labels of the 
+                data points
+        '''
+        points_data = self.points_data[:][(self.points_data['subject_id']==subject)&(self.points_data['task']==task)]
+
+        data = {}
+
+        data['x_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_x'][0]))
+        data['y_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_y'][0]))
+        data['x_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_x'][0]))
+        data['y_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_y'][0]))
+
+        clusters = {}
+        clusters['x_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_x'][0]))
+        clusters['y_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_y'][0]))
+        clusters['x_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_x'][0]))
+        clusters['y_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_y'][0]))
+
+        clusters['prob_start']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_probabilities'][0]))
+        clusters['labels_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_labels'][0]))
+        clusters['prob_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
+        clusters['labels_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_labels'][0]))
+
+        return data, clusters
+
+    def get_box_data(self, subject, task):
+        '''
+            Get the box data and cluster shapes, and associated probabilities and labels
+            for a givens subject and task
+
+            Inputs
+            ------
+            subject : int
+                Subject ID in zooniverse
+            task : string
+                Either 'T1' or 'T5' for the first jet or second jet
+
+            Returns
+            -------
+            data : dict
+                Raw classification data for the x, y, width, height and angle (degrees)
+            clusters : dict
+                Cluster shape (x, y, width, height and angle) and probabilities and labels of the 
+                data points
+        '''
+        box_data = self.box_data[:][(self.box_data['subject_id']==subject)&(self.box_data['task']==task)]
+
+        data = {}
+
+        data['x'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_x'][0]))
+        data['y'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_y'][0]))
+        data['w'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_width'][0]))
+        data['h'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_height'][0]))
+        data['a'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_angle'][0]))
+
+        clusters = {}
+
+        clusters['x'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_x'][0]))
+        clusters['y'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_y'][0]))
+        clusters['w'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_width'][0]))
+        clusters['h'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_height'][0]))
+        clusters['a'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_angle'][0]))
+        clusters['prob'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_probabilities'][0]))
+        clusters['labels'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_labels'][0]))
+
+        return data, clusters
 
     def filter_by_task(self, task):
         '''
@@ -191,61 +274,37 @@ class Aggregator:
         '''
             Plot the data for a given subject/task 
         '''
-        points_datai = self.points_data[:][(self.points_data['subject_id']==subject)&(self.points_data['task']==task)]
 
-        # convert the data from the csv into an array
-        try:
-            x0_i = ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_points_x'][0])
-            y0_i = ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_points_y'][0])
-        except ValueError:
-            x0_i = y0_i = []
+        # get the points data and associated cluster
+        points_data, points_clusters = self.get_points_data(subject, task)
 
-        try:
-            x1_i = ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_points_x'][0])
-            y1_i = ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_points_y'][0])
-        except ValueError:
-            x1_i = y1_i = []
+        x0_i = points_data['x_start']
+        y0_i = points_data['y_start']
+        x1_i = points_data['x_end']
+        y1_i = points_data['y_end']
+
+        cx0_i = points_clusters['x_start']
+        cy0_i = points_clusters['y_start']
+        p0_i  = points_clusters['prob_start']
+        cx1_i = points_clusters['x_end']
+        cy1_i = points_clusters['y_end']
+        p1_i  = points_clusters['prob_end']
+
+        # do the same for the box
+        box_data, box_clusters = self.get_box_data(subject, task)
+        x_i  = box_data['x']
+        y_i  = box_data['y']
+        w_i  = box_data['w']
+        h_i  = box_data['h']
+        a_i  = box_data['a']
         
-        # find the row corresponding to this subject in the box data for this task
-        box_datai = self.box_data[:][(self.box_data['subject_id']==subject)&(self.box_data['task']==task)]
-        try:
-            x_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_x'][0])
-            y_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_y'][0])
-            w_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_width'][0])
-            h_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_height'][0])
-            a_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_angle'][0])
-        except ValueError:
-            x_i = y_i = w_i = h_i = a_i = []
+        cx_i  = box_clusters['x']
+        cy_i  = box_clusters['y']
+        cw_i  = box_clusters['w']
+        ch_i  = box_clusters['h']
+        ca_i  = box_clusters['a']
+        pb_i  = box_clusters['prob']
 
-        try:
-            cx0_i = ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_clusters_x'][0])
-            cy0_i = ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_clusters_y'][0])
-            p0_i  = ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_cluster_probabilities'][0])
-        except (ValueError, KeyError) as e:
-            cx0_i = cy0_i = []
-            p0_i  = np.ones_like(x0_i)
-
-        try:
-            cx1_i = ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_clusters_x'][0])
-            cy1_i = ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_clusters_y'][0])
-            p1_i  = ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_cluster_probabilities'][0])
-        except ValueError:
-            cx1_i = cy1_i = []
-            p1_i  = np.ones_like(x1_i)
-
-        plot_box = False
-        try:
-            cx_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_x'][0])
-            cy_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_y'][0])
-            cw_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_width'][0])
-            ch_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_height'][0])
-            ca_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_angle'][0])
-            pb_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_cluster_probabilities'][0])
-
-            plot_box = True
-        except (ValueError, KeyError) as e:
-            pb_i = np.ones_like(x_i)
-        
         img = get_subject_image(subject)
         
         if ax is None:
@@ -253,20 +312,17 @@ class Aggregator:
             plot = True
         else:
             plot = False
+
+        # plot the subject
         ax.imshow(img)
         
         # plot the raw classifications using a .
-        try:
-            alphai = np.asarray(p0_i)*0.5 + 0.5
-            ax.scatter(x0_i, y0_i, 5.0, marker='.', color='blue', alpha=alphai)
-        except ValueError:
-            pass
-
-        try:
-            alphai = np.asarray(p1_i)*0.5 + 0.5
-            ax.scatter(x1_i, y1_i, 5.0, marker='.', color='yellow', alpha=alphai)
-        except ValueError:
-            pass
+        alphai = np.asarray(p0_i)*0.5 + 0.5
+        ax.scatter(x0_i, y0_i, 5.0, marker='.', color='blue', alpha=alphai)
+        
+        # and the end points with a yellow .
+        alphai = np.asarray(p1_i)*0.5 + 0.5
+        ax.scatter(x1_i, y1_i, 5.0, marker='.', color='yellow', alpha=alphai)
         
         # plot the clustered start/end with an x
         ax.scatter(cx0_i, cy0_i, 10.0, marker='x', color='blue')
@@ -279,10 +335,9 @@ class Aggregator:
             ax.plot(points[:,0], points[:,1], '-', color='#aaa', linewidth=linewidthi)
             
         # plot the clustered box in blue
-        if plot_box:
-            for j in range(len(cx_i)):
-                clust = get_box_edges(cx_i[j], cy_i[j], cw_i[j], ch_i[j], np.radians(ca_i[j]))
-                ax.plot(clust[:,0], clust[:,1], '-', linewidth=0.5, color='blue')
+        for j in range(len(cx_i)):
+            clust = get_box_edges(cx_i[j], cy_i[j], cw_i[j], ch_i[j], np.radians(ca_i[j]))
+            ax.plot(clust[:,0], clust[:,1], '-', linewidth=0.5, color='blue')
         
         ax.axis('off')
 
@@ -337,26 +392,20 @@ class Aggregator:
             get the distribution of classifications by frame number for the base of the jet (both start and end)
             and determine the best frame for each, based on a cluster probability based metric
         '''
+        # get the points data and associated cluster
+        points_data, points_clusters = self.get_points_data(subject, task)
 
-        # get the cluster and points information from the reduced data
-        points_datai = self.points_data[:][(self.points_data['subject_id']==subject)&(self.points_data['task']==task)]
-        try:
-            cx0_i = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_clusters_x'][0]))
-            cy0_i = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_clusters_y'][0]))
-            x0_i  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_points_x'][0]))
-            y0_i  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_points_y'][0]))
-            p0_i  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool0_cluster_probabilities'][0]))
-        except (ValueError, KeyError) as e:
-            return
+        x0_i = points_data['x_start']
+        y0_i = points_data['y_start']
+        x1_i = points_data['x_end']
+        y1_i = points_data['y_end']
 
-        try:
-            cx1_i = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_clusters_x'][0]))
-            cy1_i = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_clusters_y'][0]))
-            x1_i  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_points_x'][0]))
-            y1_i  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_points_y'][0]))
-            p1_i  = np.asarray(ast.literal_eval(points_datai[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
-        except (ValueError, KeyError) as e:
-            return
+        cx0_i = points_clusters['x_start']
+        cy0_i = points_clusters['y_start']
+        p0_i  = points_clusters['prob_start']
+        cx1_i = points_clusters['x_end']
+        cy1_i = points_clusters['y_end']
+        p1_i  = points_clusters['prob_end']
 
         # get the extract data so that we can obtain frame_time info
         # you need to run load_extractor data first
@@ -442,24 +491,19 @@ class Aggregator:
             get the distribution of classifications by frame number for box. similar to _base above
         '''
         # get the cluster and points information from the reduced data
-        box_datai = self.box_data[:][(self.box_data['subject_id']==subject)&(self.box_data['task']==task)]
-        try:
-            cx_i = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_x'][0]))
-            cy_i = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_y'][0]))
-            cw_i = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_width'][0]))
-            ch_i = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_height'][0]))
-            ca_i = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_angle'][0]))
-
-
-            x_i = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_x'][0]))
-            y_i = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_y'][0]))
-            w_i = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_width'][0]))
-            h_i = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_height'][0]))
-            a_i = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_rotateRectangle_angle'][0]))
-
-            p0_i  = np.asarray(ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_cluster_probabilities'][0]))
-        except (ValueError, KeyError) as e:
-            return
+        box_data, box_clusters = self.get_box_data(subject, task)
+        x_i  = box_data['x']
+        y_i  = box_data['y']
+        w_i  = box_data['w']
+        h_i  = box_data['h']
+        a_i  = box_data['a']
+        
+        cx_i  = box_clusters['x']
+        cy_i  = box_clusters['y']
+        cw_i  = box_clusters['w']
+        ch_i  = box_clusters['h']
+        ca_i  = box_clusters['a']
+        p0_i  = box_clusters['prob']
 
         # get the extract data so that we can obtain frame_time info
         # you need to run load_extractor data first
@@ -575,7 +619,6 @@ class Aggregator:
         # convert the data from the csv into an array
         points_data, point_clust = self.get_points_data(subject, task)
         box_data, box_clust = self.get_box_data(subject, task)
-    
 
         x0 = points_data['x_start']
         y0 = points_data['y_start']
@@ -659,89 +702,6 @@ class Aggregator:
 
         return start_dist, end_dist, box_iou
 
-    def get_points_data(self, subject, task):
-        '''
-            Get the points data and cluster, and associated probabilities and labels
-            for a givens subject and task. s corresponds to the start and e corresponds to end
-
-            Inputs
-            ------
-            subject : int
-                Subject ID in zooniverse
-            task : string
-                Either 'T1' or 'T5' for the first jet or second jet
-
-            Returns
-            -------
-            data : dict
-                Raw classification data for the x, y (xs, ys for the start and xe, ye for the end)
-            clusters : dict
-                Cluster shape (x, y) for start and end and probabilities and labels of the 
-                data points
-        '''
-        points_data = self.points_data[:][(self.points_data['subject_id']==subject)&(self.points_data['task']==task)]
-
-        data = {}
-
-        data['x_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_x'][0]))
-        data['y_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_y'][0]))
-        data['x_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_x'][0]))
-        data['y_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_y'][0]))
-
-        clusters = {}
-        clusters['x_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_x'][0]))
-        clusters['y_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_y'][0]))
-        clusters['x_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_x'][0]))
-        clusters['y_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_y'][0]))
-
-        clusters['prob_start']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_probabilities'][0]))
-        clusters['labels_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_labels'][0]))
-        clusters['prob_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
-        clusters['labels_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_labels'][0]))
-
-        return data, clusters
-
-    def get_box_data(self, subject, task):
-        '''
-            Get the box data and cluster shapes, and associated probabilities and labels
-            for a givens subject and task
-
-            Inputs
-            ------
-            subject : int
-                Subject ID in zooniverse
-            task : string
-                Either 'T1' or 'T5' for the first jet or second jet
-
-            Returns
-            -------
-            data : dict
-                Raw classification data for the x, y, width, height and angle (degrees)
-            clusters : dict
-                Cluster shape (x, y, width, height and angle) and probabilities and labels of the 
-                data points
-        '''
-        box_data = self.box_data[:][(self.box_data['subject_id']==subject)&(self.box_data['task']==task)]
-
-        data = {}
-
-        data['x'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_x'][0]))
-        data['y'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_y'][0]))
-        data['w'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_width'][0]))
-        data['h'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_height'][0]))
-        data['a'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_angle'][0]))
-
-        clusters = {}
-
-        clusters['x'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_x'][0]))
-        clusters['y'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_y'][0]))
-        clusters['w'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_width'][0]))
-        clusters['h'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_height'][0]))
-        clusters['a'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_angle'][0]))
-        clusters['prob'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_probabilities'][0]))
-        clusters['labels'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_labels'][0]))
-
-        return data, clusters
 
     def find_unique_jets(self, subject, plot=False):
         '''
