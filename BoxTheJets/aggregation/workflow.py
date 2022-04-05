@@ -92,10 +92,10 @@ class Aggregator:
         self.box_data = ascii.read(box_file, delimiter=',')
 
         for col in self.box_data.colnames:
-            self.box_data[col].fill_value    = 'None'
+            self.box_data[col].fill_value    = '[]'
 
         for col in self.points_data.colnames:
-            self.points_data[col].fill_value = 'None'
+            self.points_data[col].fill_value = '[]'
 
     def get_points_data(self, subject, task):
         '''
@@ -119,23 +119,25 @@ class Aggregator:
         '''
         points_data = self.points_data[:][(self.points_data['subject_id']==subject)&(self.points_data['task']==task)]
 
+        points_data = points_data.filled()
+
         data = {}
 
         data['x_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_x'][0]))
         data['y_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_y'][0]))
-        data['x_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_x'][0]))
-        data['y_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_y'][0]))
+        data['x_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_x'][0]))
+        data['y_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_y'][0]))
 
         clusters = {}
         clusters['x_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_x'][0]))
         clusters['y_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_y'][0]))
-        clusters['x_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_x'][0]))
-        clusters['y_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_y'][0]))
+        clusters['x_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_x'][0]))
+        clusters['y_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_y'][0]))
 
         clusters['prob_start']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_probabilities'][0]))
         clusters['labels_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_labels'][0]))
-        clusters['prob_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
-        clusters['labels_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_labels'][0]))
+        clusters['prob_end']     = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
+        clusters['labels_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_labels'][0]))
 
         return data, clusters
 
@@ -160,6 +162,8 @@ class Aggregator:
                 data points
         '''
         box_data = self.box_data[:][(self.box_data['subject_id']==subject)&(self.box_data['task']==task)]
+
+        box_data = box_data.filled()
 
         data = {}
 
@@ -726,7 +730,10 @@ class Aggregator:
         data_T1, clusters_T1 = self.get_box_data(subject, 'T1')
         _, _, box_iou_T1     = self.get_cluster_confidence(subject, 'T1')
         data_T5, clusters_T5 = self.get_box_data(subject, 'T5')
-        _, _, box_iou_T5     = self.get_cluster_confidence(subject, 'T5')
+        if len(clusters_T5['x']) > 0:
+            _, _, box_iou_T5     = self.get_cluster_confidence(subject, 'T5')
+        else:
+            box_iou_T5 = []
 
         # combine the box data from the two tasks
         combined_boxes = {}
@@ -781,7 +788,7 @@ class Aggregator:
                 # if the IoU is better than the worst IoU of the classifications
                 # for either box, then we should merge these two
                 # this metric could be changed to be more robust in the future
-                if ious[j] > np.min([temp_box_ious[0], temp_box_ious[j]]):
+                if ious[j] > np.min([temp_box_ious[0], temp_box_ious[j], 0.2]):
                     merge_mask[j] = True
 
             # add the box with the best iou to the cluster list
@@ -955,7 +962,7 @@ class Aggregator:
             temp_clust_ends = np.delete(temp_clust_ends, merge_mask, axis=0)
             temp_end_dists  = np.delete(temp_end_dists, merge_mask)
 
-        return clust_starts, clust_ends
+        return np.asarray(clust_starts), np.asarray(clust_ends)
             
     def filter_classifications(self, subject):
         '''
@@ -983,18 +990,53 @@ class Aggregator:
         data_T1, _ = self.get_box_data(subject, 'T1')
         data_T5, _ = self.get_box_data(subject, 'T5')
         
+        point_data_T1, _ = self.get_points_data(subject, 'T1')
+        point_data_T5, _ = self.get_points_data(subject, 'T5')
+        
         # and the unique clusters
-        unique_jets = self.find_unique_jets(subject)
+        unique_jets                = self.find_unique_jets(subject)
         unique_starts, unique_ends = self.find_unique_jet_points(subject)
 
         # combine the T1 and T5 raw data
         combined_boxes = {}
-        filtered_box_data = [{} for i in range(len(unique_jets))]
         for key in data_T1.keys():
             combined_boxes[key] = [*data_T1[key], *data_T5[key]]
-            for j in range(len(unique_jets)):
-                filtered_box_data[j][key] = []
 
+        # combined start/end points
+        combined_starts = {}
+        for key in point_data_T1.keys():
+            if 'start' in key:
+                combined_starts[key] = [*point_data_T1[key], *point_data_T5[key]]
+        
+        combined_ends = {}
+        for key in point_data_T1.keys():
+            if 'end' in key:
+                combined_ends[key] = [*point_data_T1[key], *point_data_T5[key]]
+
+        jets = []
+
+        # for each jet box, find the best start/end points
+        for i, jeti in enumerate(unique_jets):
+            box_points = np.transpose(jeti.exterior.xy)[:4]
+
+            dists = []
+            for j, point in enumerate(unique_starts):
+                disti = np.median([np.linalg.norm(point-pointi) for pointi in box_points])
+                dists.append(disti)
+
+            best_start = unique_starts[np.argmin(dists)]
+            
+            dists = []
+            for j, point in enumerate(unique_ends):
+                disti = np.median([np.linalg.norm(point-pointi)*np.linalg.norm(point - best_start) for pointi in box_points])
+                dists.append(disti)
+            
+            best_end = unique_ends[np.argmin(dists)]
+
+            jets.append(Jet(subject, best_start, best_end, jeti))
+        
+
+        # add the raw classifications back to the jet object
         # loop through the classifications
         for i in range(len(combined_boxes['x'])):
             x = combined_boxes['x'][i]
@@ -1018,22 +1060,112 @@ class Aggregator:
 
             # and add the raw data to that cluster
             for key in data_T1.keys():
-                filtered_box_data[index][key].append(combined_boxes[key][i])
+                jets[index].box_extracts[key].append(combined_boxes[key][i])
 
-        # for j, jet in enumerate(unique_jets):
-        #     fig, ax = plt.subplots(1,1, dpi=150)
-        #     ax.imshow(get_subject_image(subject))
-        #     ax.plot(*jet.exterior.xy, 'b-')
-        #     box_data_j = filtered_box_data[j]
-        #     for i in range(len(box_data_j['x'])):
-        #         x = box_data_j['x'][i]
-        #         y = box_data_j['y'][i]
-        #         w = box_data_j['w'][i]
-        #         h = box_data_j['h'][i]
-        #         a = np.radians(box_data_j['a'][i])
-        #         boxi = Polygon(get_box_edges(x, y, w, h, a)[:4])
-        #         ax.plot(*boxi.exterior.xy, '-', color='gray', linewidth=0.5)
-        #         ax.axis('off')
-        #     plt.show()
+        # now do the same for the base/end points
+        for i in range(len(combined_starts['x_start'])):
+            x = combined_starts['x_start'][i]
+            y = combined_starts['y_start'][i]
 
-        return filtered_box_data, unique_jets
+            # and the find the distance between this point and 
+            # the cluster points
+            dists = np.zeros(len(jets))
+            for j, jet in enumerate(jets):
+                dists[j] = get_point_distance(x, y, *jet.start)
+
+            # we're going to find the "best" cluster i.e., the one with the 
+            # lowest distance
+            index = np.argmin(dists)
+            
+            # and add the raw data to that cluster
+            for key in combined_starts.keys():
+                jets[index].start_extracts[key.replace('_start', '')].append(combined_starts[key][i])
+
+        # same for the ends
+        for i in range(len(combined_ends['x_end'])):
+            x = combined_ends['x_end'][i]
+            y = combined_ends['y_end'][i]
+
+            dists = np.zeros(len(jets))
+            for j, jet in enumerate(jets):
+                dists[j] = get_point_distance(x, y, *jet.end)
+
+            # we're going to find the "best" cluster i.e., the one with the 
+            # lowest distance
+            index = np.argmin(dists)
+            
+            # and add the raw data to that cluster
+            for key in combined_ends.keys():
+                jets[index].end_extracts[key.replace('_end','')].append(combined_ends[key][i])
+        
+        fig, ax = plt.subplots(1, 1, dpi=150)
+        ax.imshow(get_subject_image(subject))
+
+        x_s = [*point_data_T1['x_start'], *point_data_T5['x_start']]
+        y_s = [*point_data_T1['y_start'], *point_data_T5['y_start']]
+
+        for point in zip(x_s, y_s):
+            ax.plot(*point, 'k.', markersize=1.5)
+        for point in unique_starts:
+            ax.plot(*point, 'b.')
+        for point in unique_ends:
+            ax.plot(*point, 'y.')
+        for jet in jets:
+            jet.plot(ax)
+
+        ax.axis('off')
+        plt.show()
+
+        return jets
+
+class Jet:
+    def __init__(self, subject, start, end, box):
+        self.subject = subject
+        self.start   = start
+        self.end     = end
+        self.box     = box
+        
+        self.box_extracts   = {'x': [], 'y': [], 'w': [], 'h': [], 'a': []}
+        self.start_extracts = {'x': [], 'y': []}
+        self.end_extracts   = {'x': [], 'y': []}
+
+    def get_extract_starts(self):
+        x_s = self.start_extracts['x']
+        y_s = self.start_extracts['y']
+
+        return np.transpose([x_s, y_s])
+
+    def get_extract_ends(self):
+        x_e = self.end_extracts['x']
+        y_e = self.end_extracts['y']
+
+        return np.transpose([x_e, y_e])
+
+    def get_extract_boxes(self):
+        boxes = []
+        for i in range(len(self.box_extracts['x'])):
+            x = self.box_extracts['x'][i]
+            y = self.box_extracts['y'][i]
+            w = self.box_extracts['w'][i]
+            h = self.box_extracts['h'][i]
+            a = np.radians(self.box_extracts['a'][i])
+
+            # get the box
+            boxes.append(Polygon(get_box_edges(x, y, w, h, a)[:4]))
+
+        return boxes
+
+    def plot(self, ax):
+        ax.plot(*self.box.exterior.xy, 'b-')
+        ax.plot(*self.start, 'bx')
+        ax.plot(*self.end, 'yx')
+
+        start_ext = self.get_extract_starts()
+        end_ext   = self.get_extract_ends()
+
+        ax.plot(start_ext[:,0], start_ext[:,1], 'k.', markersize=1.5)
+        ax.plot(end_ext[:,0], end_ext[:,1], 'k.', markersize=1.5)
+        for box in self.get_extract_boxes():
+            iou = box.intersection(self.box).area/box.union(self.box).area
+            ax.plot(*box.exterior.xy, 'k-', linewidth=0.5, alpha=0.9*iou+0.1)
+
