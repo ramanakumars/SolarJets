@@ -45,7 +45,7 @@ class SOL:
                 format: 'SOLyyyy-mm-ddThh:mm:ssL000C000'
 
         '''
-        self.SOL_small, self.SOL_subjects, self.times, self.Num, \
+        self.SOL_small, self.SOL_subjects, self.filenames0, self.times, self.Num, \
             self.start, self.end, self.notes = \
             np.loadtxt(SOL_stats_file, delimiter=',',unpack=True,dtype=str)
         self.aggregator = aggregator
@@ -184,7 +184,7 @@ class SOL:
               os.makedirs(path)
               print("SOL_Box directory is created")
         
-            plt.savefig('SOL/SOL_Box_size'+'/'+self.SOL_event.replace(':','-')+'.png')
+            plt.savefig('SOL/SOL_Box_size'+'/'+SOL_event.replace(':','-')+'.png')
         
         plt.show()
         
