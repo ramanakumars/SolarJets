@@ -836,7 +836,7 @@ class Aggregator:
                 # if the IoU is better than the worst IoU of the classifications
                 # for either box, then we should merge these two
                 # this metric could be changed to be more robust in the future
-                if ious[j] > np.min([temp_box_ious[0], temp_box_ious[j], 0.1]):
+                if ious[j] > np.min([temp_box_ious[0], temp_box_ious[j], 0.2]):
                     merge_mask[j] = True
 
             # add the box with the best iou to the cluster list
