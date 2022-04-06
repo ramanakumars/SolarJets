@@ -180,9 +180,28 @@ class Aggregator:
         clusters['w'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_width'][0]))
         clusters['h'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_height'][0]))
         clusters['a'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_angle'][0]))
-        clusters['prob'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_probabilities'][0]))
+
         clusters['labels'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_labels'][0]))
 
+        try:
+            clusters['prob'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_probabilities'][0]))
+        except KeyError:
+            probs = np.zeros(len(data['x']))
+            for i in range(len(data['x'])):
+                labeli = clusters['labels'][i]
+                if labeli == -1:
+                    probs[i] = 0
+                else:
+                    boxi_data   = Polygon(get_box_edges(data['x'][i], data['y'][i], 
+                                                      data['w'][i], data['h'][i], 
+                                                      np.radians(data['a'][i]))[:4])
+                    boxi_clust = Polygon(get_box_edges(clusters['x'][labeli], clusters['y'][labeli], 
+                                                      clusters['w'][labeli], clusters['h'][labeli], 
+                                                      np.radians(clusters['a'][labeli]))[:4])
+
+                    probs[i] = boxi_data.intersection(boxi_clust).area/boxi_data.union(boxi_clust).area
+            clusters['prob'] = probs
+                
         return data, clusters
 
     def filter_by_task(self, task):
@@ -738,7 +757,12 @@ class Aggregator:
         # combine the box data from the two tasks
         combined_boxes = {}
         for key in clusters_T1.keys():
-            combined_boxes[key] = [*clusters_T1[key], *clusters_T5[key]]
+            if key=='labels':
+                T5_labels = clusters_T5[key]
+                T5_labels = [labeli + 1 + np.max(clusters_T1[key]) for labeli in T5_labels if labeli > -1]
+                combined_boxes[key] = [*clusters_T1[key], *T5_labels]
+            else:
+                combined_boxes[key] = [*clusters_T1[key], *clusters_T5[key]]
 
         combined_boxes['iou'] = [*box_iou_T1, *box_iou_T5]
 
@@ -746,6 +770,7 @@ class Aggregator:
         # valid clusters (iou > 0)
         temp_clust_boxes = []
         temp_box_ious    = []
+        temp_box_count   = []
         for i in range(len(combined_boxes['x'])):
             x = combined_boxes['x'][i]
             y = combined_boxes['y'][i]
@@ -755,9 +780,13 @@ class Aggregator:
             if combined_boxes['iou'][i] > 1.e-6:
                 temp_clust_boxes.append(Polygon(get_box_edges(x, y, w, h, a)[:4]))
                 temp_box_ious.append(combined_boxes['iou'][i])
+                print(combined_boxes['labels'])
+                temp_box_count.append(np.sum(np.asarray(combined_boxes['labels'])==i))
 
+        print(temp_box_count)
         temp_clust_boxes = np.asarray(temp_clust_boxes)
         temp_box_ious    = np.asarray(temp_box_ious)
+        temp_box_count   = np.asarray(temp_box_count)
 
         # now loop over this bucket of polygons
         # and see how well they match with each other
@@ -788,12 +817,13 @@ class Aggregator:
                 # if the IoU is better than the worst IoU of the classifications
                 # for either box, then we should merge these two
                 # this metric could be changed to be more robust in the future
-                if ious[j] > np.min([temp_box_ious[0], temp_box_ious[j], 0.2]):
+                if ious[j] > np.min([temp_box_ious[0], temp_box_ious[j], 0.1]):
                     merge_mask[j] = True
 
             # add the box with the best iou to the cluster list
+            sum_ious = temp_box_ious[merge_mask]*temp_box_count[merge_mask]
             clust_boxes.append(\
-                temp_clust_boxes[merge_mask][np.argmax(temp_box_ious[merge_mask])])
+                temp_clust_boxes[merge_mask][np.argmax(sum_ious)])
 
             if plot:
                 fig, ax = plt.subplots(1,1, dpi=150)
@@ -801,13 +831,21 @@ class Aggregator:
                 ax.plot(*box0.exterior.xy, 'b-')
                 for j in range(1, nboxes):
                     bj = temp_clust_boxes[j]
-                    ax.plot(*bj.exterior.xy, 'k-', linewidth=0.5)
+                    if merge_mask[j]:
+                        ax.plot(*bj.exterior.xy, 'k--', linewidth=0.5)
+                    else:
+                        ax.plot(*bj.exterior.xy, 'k-', linewidth=0.5)
+                for j in range(nboxes):
+                    bj = temp_clust_boxes[j]
+                    ax.text(*np.mean(bj.exterior.xy, axis=1), round(ious[j], 2))
+
                 ax.axis('off')
                 plt.show()
             
             # and remove all the overlapping boxes from the list
             temp_clust_boxes = np.delete(temp_clust_boxes, merge_mask)
             temp_box_ious    = np.delete(temp_box_ious, merge_mask)
+            temp_box_count   = np.delete(temp_box_count, merge_mask)
 
         return clust_boxes
 
