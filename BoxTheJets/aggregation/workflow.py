@@ -803,6 +803,7 @@ class Aggregator:
                 temp_box_ious.append(combined_boxes['iou'][i])
                 temp_box_count.append(np.sum(np.asarray(combined_boxes['labels'])==i))
 
+        print(temp_box_count)
         temp_clust_boxes = np.asarray(temp_clust_boxes)
         temp_box_ious    = np.asarray(temp_box_ious)
         temp_box_count   = np.asarray(temp_box_count)
@@ -836,7 +837,7 @@ class Aggregator:
                 # if the IoU is better than the worst IoU of the classifications
                 # for either box, then we should merge these two
                 # this metric could be changed to be more robust in the future
-                if ious[j] > np.min([temp_box_ious[0], temp_box_ious[j], 0.2]):
+                if ious[j] > np.min([temp_box_ious[0], temp_box_ious[j], 0.1]):
                     merge_mask[j] = True
 
             # add the box with the best iou to the cluster list
