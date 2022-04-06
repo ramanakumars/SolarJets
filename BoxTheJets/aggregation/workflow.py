@@ -780,10 +780,8 @@ class Aggregator:
             if combined_boxes['iou'][i] > 1.e-6:
                 temp_clust_boxes.append(Polygon(get_box_edges(x, y, w, h, a)[:4]))
                 temp_box_ious.append(combined_boxes['iou'][i])
-                print(combined_boxes['labels'])
                 temp_box_count.append(np.sum(np.asarray(combined_boxes['labels'])==i))
 
-        print(temp_box_count)
         temp_clust_boxes = np.asarray(temp_clust_boxes)
         temp_box_ious    = np.asarray(temp_box_ious)
         temp_box_count   = np.asarray(temp_box_count)
@@ -1207,3 +1205,26 @@ class Jet:
             iou = box.intersection(self.box).area/box.union(self.box).area
             ax.plot(*box.exterior.xy, 'k-', linewidth=0.5, alpha=0.9*iou+0.1)
 
+        base_points, height_points = self.get_width_height_pairs()
+        ax.plot(base_points[:,0], base_points[:,1], 'y-')
+        ax.plot(height_points[:,0], height_points[:,1], '-', color='grey')
+
+
+    def get_width_height_pairs(self):
+        box_points   = np.transpose(self.box.exterior.xy)[:4,:]
+        dists        = [np.linalg.norm((point - self.start)) for point in box_points]
+        sorted_dists = np.argsort(dists)
+
+        # the base points are the two points closest to the start
+        base_points = np.array([box_points[sorted_dists[0]], box_points[sorted_dists[1]]])
+
+        # the height points are the next two
+        rolled_points = np.delete(np.roll(box_points, -sorted_dists[0],
+                                          axis=0), 0, axis=0)
+
+        if np.linalg.norm(rolled_points[0,:]-base_points[1,:])==0:
+            height_points = rolled_points[:2]
+        else:
+            height_points = rolled_points[::-1][:2]
+
+        return base_points, height_points
