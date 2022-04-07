@@ -2,6 +2,7 @@ from multiprocessing.sharedctypes import Value
 import numpy as np
 from astropy.io import ascii
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import ast
 import json
 from panoptes_client import Panoptes, Subject, Workflow
@@ -71,6 +72,26 @@ def get_box_distance(box1, box2):
 
     return np.average(mindist)
 
+
+def create_gif(jets):
+    subject = jets[0].subject
+
+    fig, ax = plt.subplots(1,1, dpi=150)
+    ax.imshow(get_subject_image(subject, 0))
+    ax.axis('off')
+    fig.tight_layout()
+
+    ims = []
+    for i in range(15):
+        im1 = ax.imshow(get_subject_image(subject, i))
+        jetims = []
+        for jet in jets:
+            jetims.extend(jet.plot(ax))
+        
+        ims.append([im1, *jetims])
+
+    ani = animation.ArtistAnimation(fig, ims)
+    ani.save(f'{subject}.gif', writer='imagemagick')
 
 class Aggregator:
     '''
@@ -1192,23 +1213,25 @@ class Jet:
         return boxes
 
     def plot(self, ax):
-        ax.plot(*self.box.exterior.xy, 'b-')
-        ax.plot(*self.start, 'bx')
-        ax.plot(*self.end, 'yx')
+        boxplot,   = ax.plot(*self.box.exterior.xy, 'b-')
+        startplot, = ax.plot(*self.start, 'bx')
+        endplot,  =ax.plot(*self.end, 'yx')
 
         start_ext = self.get_extract_starts()
         end_ext   = self.get_extract_ends()
 
-        ax.plot(start_ext[:,0], start_ext[:,1], 'k.', markersize=1.5)
-        ax.plot(end_ext[:,0], end_ext[:,1], 'k.', markersize=1.5)
+        startextplot, = ax.plot(start_ext[:,0], start_ext[:,1], 'k.', markersize=1.5)
+        endextplot,   = ax.plot(end_ext[:,0], end_ext[:,1], 'k.', markersize=1.5)
+        boxextplots = []
         for box in self.get_extract_boxes():
             iou = box.intersection(self.box).area/box.union(self.box).area
-            ax.plot(*box.exterior.xy, 'k-', linewidth=0.5, alpha=0.9*iou+0.1)
+            boxextplots.append(ax.plot(*box.exterior.xy, 'k-', linewidth=0.5, alpha=0.45*iou+0.05)[0])
 
         base_points, height_points = self.get_width_height_pairs()
-        ax.plot(base_points[:,0], base_points[:,1], 'y-')
-        ax.plot(height_points[:,0], height_points[:,1], '-', color='grey')
+        baseplot, = ax.plot(base_points[:,0], base_points[:,1], 'y--')
+        heightplot, = ax.plot(height_points[:,0], height_points[:,1], 'k--')
 
+        return [boxplot, startplot, endplot, startextplot, endextplot, *boxextplots, baseplot, heightplot]
 
     def get_width_height_pairs(self):
         box_points   = np.transpose(self.box.exterior.xy)[:4,:]
