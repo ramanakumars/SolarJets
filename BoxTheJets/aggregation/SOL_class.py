@@ -17,7 +17,7 @@ import datetime
 from matplotlib.dates import DateFormatter
 from aggregation import Aggregator
 
-def get_h_w_clusterbox(subject, task='T1'):
+def get_h_w_clusterbox(subject,aggregator, task='T1'):
     '''
     Get the dimensions of the cluster box for a given subject
     This function will be replaced when the find_unique_jets function is ready
@@ -45,7 +45,7 @@ class SOL:
                 format: 'SOLyyyy-mm-ddThh:mm:ssL000C000'
 
         '''
-        self.SOL_small, self.SOL_subjects, self.times, self.Num, \
+        self.SOL_small, self.SOL_subjects, self.filenames0, self.times, self.Num, \
             self.start, self.end, self.notes = \
             np.loadtxt(SOL_stats_file, delimiter=',',unpack=True,dtype=str)
         self.aggregator = aggregator
@@ -121,6 +121,21 @@ class SOL:
         end_time=np.array([parse(E[t]) for t in range(len(E))],dtype='datetime64')    
         return start_time, end_time
     
+    def get_notes_time(self, SOL_event):
+        '''
+        Get the notes of jet clusters in given SOL event
+        
+        notes: flags given to subjects 
+            100 means an event of less than 6 minutes
+            010 means an event where 2 event are closely after eachother
+        saved in SOL_Tc_stats.csv
+        '''
+        i=np.argwhere(self.SOL_small==SOL_event)[0][0]
+        flag=np.array(self.notes[i].split(' ')[1::3])
+        N= [a + 'T'+ b for a, b in zip(self.notes[i].split(' ')[2::3],self.notes[i].split(' ')[3::3])]
+        notes_time=np.array([parse(N[t]) for t in range(len(N))],dtype='datetime64')
+        return notes_time, flag
+    
     def get_box_dim(self,SOL_event, p=True):  
         '''
         Get the height and width arrays of the subjects inside a given SOL event
@@ -136,7 +151,7 @@ class SOL:
             nsubjects = len(subject_rows['data.frame0.T1_tool0_points_x'])
             if nsubjects > 0:
                 try:
-                    width,height=get_h_w_clusterbox(subject, task='T1') #Function will be replaced by find_unique_jets 
+                    width,height=get_h_w_clusterbox(subject,self.aggregator, task='T1') #Function will be replaced by find_unique_jets 
                     W=np.append(W,width[0]) #Only one box is chosen if more clusters are present
                     H=np.append(H,height[0])
                     #print(width,height)
@@ -184,7 +199,7 @@ class SOL:
               os.makedirs(path)
               print("SOL_Box directory is created")
         
-            plt.savefig('SOL/SOL_Box_size'+'/'+self.SOL_event.replace(':','-')+'.png')
+            plt.savefig('SOL/SOL_Box_size'+'/'+SOL_event.replace(':','-')+'.png')
         
         plt.show()
         
