@@ -1186,6 +1186,8 @@ class Jet:
         self.start_extracts = {'x': [], 'y': []}
         self.end_extracts   = {'x': [], 'y': []}
 
+        self.autorotate()
+
     def get_extract_starts(self):
         x_s = self.start_extracts['x']
         y_s = self.start_extracts['y']
@@ -1225,16 +1227,31 @@ class Jet:
         boxextplots = []
         for box in self.get_extract_boxes():
             iou = box.intersection(self.box).area/box.union(self.box).area
-            boxextplots.append(ax.plot(*box.exterior.xy, 'k-', linewidth=0.5, alpha=0.45*iou+0.05)[0])
+            boxextplots.append(ax.plot(*box.exterior.xy, 'k-', linewidth=0.5, alpha=0.65*iou+0.05)[0])
+
+        # also plot the center axis
+        center   = np.mean(np.asarray(self.box.exterior.xy)[:,:4], axis=1)
+        rotation = np.asarray([[np.cos(self.angle), -np.sin(self.angle)],
+                               [np.sin(self.angle), np.cos(self.angle)]])
+        point0 = center + np.matmul(rotation, np.asarray([0,  self.height/2.]))
+        point1 = center + np.matmul(rotation, np.asarray([0, -self.height/2.]))
+        vec    = point1 - point0
+        #ax.plot(*np.transpose([point0, point1]), 'k-')
 
         base_points, height_points = self.get_width_height_pairs()
-        baseplot, = ax.plot(base_points[:,0], base_points[:,1], 'y--')
-        heightplot, = ax.plot(height_points[:,0], height_points[:,1], 'k--')
+        #baseplot, = ax.plot(base_points[:,0], base_points[:,1], 'y--')
+        #heightplot, = ax.plot(height_points[:,0], height_points[:,1], 'k--')
 
-        return [boxplot, startplot, endplot, startextplot, endextplot, *boxextplots, baseplot, heightplot]
+        arrowplot = ax.arrow(*point0, vec[0], vec[1], color='k', length_includes_head=True, head_width=25)
+        center_plot, = ax.plot(*center, 'kx')
 
-    def get_width_height_pairs(self):
+
+        return [boxplot, startplot, endplot, startextplot, endextplot, *boxextplots, arrowplot, center_plot]
+
+    def autorotate(self):
         box_points   = np.transpose(self.box.exterior.xy)[:4,:]
+
+        # find the distance between each point and the starting base
         dists        = [np.linalg.norm((point - self.start)) for point in box_points]
         sorted_dists = np.argsort(dists)
 
@@ -1267,9 +1284,26 @@ class Jet:
         rolled_points = np.delete(np.roll(box_points, -sorted_dists[0],
                                           axis=0), 0, axis=0)
 
+        # we want to make sure that the order of the points 
+        # is in such a way that the point closest to the base
+        # comes first -- this will ensure that the next point is
+        # along the height line
         if np.linalg.norm(rolled_points[0,:]-base_points[1,:])==0:
             height_points = rolled_points[:2]
         else:
             height_points = rolled_points[::-1][:2]
 
-        return base_points, height_points
+        self.base_points   = base_points
+        self.height_points = height_points
+
+        # also figure out the angle and additional size metadata
+        # the angle is the angle between the height points and the base
+        dh = self.height_points[1] - self.height_points[0]
+        self.angle = np.arctan2(dh[0], -dh[1])
+
+        self.height = np.linalg.norm(dh)
+        self.width  = np.linalg.norm(self.base_points[1] - self.base_points[0])
+
+    def get_width_height_pairs(self):
+
+        return self.base_points, self.height_points
