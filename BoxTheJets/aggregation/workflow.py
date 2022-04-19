@@ -1026,7 +1026,7 @@ class Aggregator:
 
         return np.asarray(clust_starts), np.asarray(clust_ends)
             
-    def filter_classifications(self, subject, do_transform=False):
+    def filter_classifications(self, subject):
         '''
             Find a list of unique jets in the subject
             and segregate the classifications into each cluster 
