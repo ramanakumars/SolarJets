@@ -832,6 +832,14 @@ class Aggregator:
         # so we can keep track of progress based on how 
         # many items are still in the queue
         clust_boxes = []
+
+        # we are going to sort by the IoU of each box
+        # so that the best boxes are processed first
+        sort_mask = np.argsort(temp_box_ious*temp_box_count)[::-1]
+        temp_clust_boxes = temp_clust_boxes[sort_mask]
+        temp_box_ious    = temp_box_ious[sort_mask]
+        temp_box_count   = temp_box_count[sort_mask]
+
         while len(temp_clust_boxes) > 0:
             nboxes = len(temp_clust_boxes)
 
