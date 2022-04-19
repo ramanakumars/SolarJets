@@ -6,7 +6,7 @@ import matplotlib.animation as animation
 import ast
 import json
 from panoptes_client import Panoptes, Subject, Workflow
-from skimage import io
+from skimage import io, transform
 import getpass
 from shapely.geometry import Polygon, Point
 
@@ -49,6 +49,10 @@ def get_subject_image(subject, frame=7):
     
     img = io.imread(frame0_url)
 
+    # for subjects that have an odd size, resize them
+    if img.shape[0] != 1920:
+        img = transform.resize(img, (1440, 1920))
+
     return img
 
 def get_point_distance(x0, y0, x1, y1):
@@ -83,7 +87,8 @@ def create_gif(jets):
 
     ims = []
     for i in range(15):
-        im1 = ax.imshow(get_subject_image(subject, i))
+        img = get_subject_image(subject, i)
+        im1 = ax.imshow(img)
         jetims = []
         for jet in jets:
             jetims.extend(jet.plot(ax))
@@ -1156,7 +1161,10 @@ class Aggregator:
                 jets[index].end_extracts[key.replace('_end','')].append(combined_ends[key][i])
         
         fig, ax = plt.subplots(1, 1, dpi=150)
-        ax.imshow(get_subject_image(subject))
+
+
+        img = get_subject_image(subject)
+        ax.imshow(img)
 
         x_s = [*point_data_T1['x_start'], *point_data_T5['x_start']]
         y_s = [*point_data_T1['y_start'], *point_data_T5['y_start']]
@@ -1242,11 +1250,9 @@ class Jet:
         #baseplot, = ax.plot(base_points[:,0], base_points[:,1], 'y--')
         #heightplot, = ax.plot(height_points[:,0], height_points[:,1], 'k--')
 
-        arrowplot = ax.arrow(*point0, vec[0], vec[1], color='k', length_includes_head=True, head_width=25)
-        center_plot, = ax.plot(*center, 'kx')
+        arrowplot = ax.arrow(*point0, vec[0], vec[1], color='white', length_includes_head=True, head_width=25)
 
-
-        return [boxplot, startplot, endplot, startextplot, endextplot, *boxextplots, arrowplot, center_plot]
+        return [boxplot, startplot, endplot, startextplot, endextplot, *boxextplots, arrowplot]
 
     def autorotate(self):
         box_points   = np.transpose(self.box.exterior.xy)[:4,:]
