@@ -6,7 +6,7 @@ import matplotlib.animation as animation
 import ast
 import json
 from panoptes_client import Panoptes, Subject, Workflow
-from skimage import io
+from skimage import io, transform
 import getpass
 from shapely.geometry import Polygon, Point
 
@@ -48,6 +48,9 @@ def get_subject_image(subject, frame=7):
         frame0_url = subjecti.raw['locations'][frame]['image/jpeg']
     
     img = io.imread(frame0_url)
+
+    if img.shape[0] != 1920:
+        img = transform.resize(img, (1440, 1920))
 
     return img
 
