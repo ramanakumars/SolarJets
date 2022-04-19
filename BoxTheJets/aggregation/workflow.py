@@ -78,23 +78,37 @@ def get_box_distance(box1, box2):
 
 
 def create_gif(jets):
+    '''
+        Create a gif of the jet objects showing the 
+        image and the plots from the `Jet.plot()` method
+    '''
+    # get the subject that the jet belongs to
     subject = jets[0].subject
 
+    # create a temp plot so that we can get a size estimate
     fig, ax = plt.subplots(1,1, dpi=150)
     ax.imshow(get_subject_image(subject, 0))
     ax.axis('off')
     fig.tight_layout()
 
+    # loop through the frames and plot
     ims = []
     for i in range(15):
         img = get_subject_image(subject, i)
+
+        # first, plot the image
         im1 = ax.imshow(img)
+
+        # for each jet, plot all the details
+        # and add each plot artist to the list
         jetims = []
         for jet in jets:
             jetims.extend(jet.plot(ax))
         
+        # combine all the plot artists together
         ims.append([im1, *jetims])
 
+    # save the animation as a gif
     ani = animation.ArtistAnimation(fig, ims)
     ani.save(f'{subject}.gif', writer='imagemagick')
 
