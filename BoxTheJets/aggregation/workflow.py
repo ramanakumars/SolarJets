@@ -1184,6 +1184,12 @@ class Aggregator:
         return jets
 
 class Jet:
+    '''
+        Oject to hold the data associated with a single jet.
+        Contains the start/end positions and associated extracts,
+        and the box (as a `shapely.Polygon` object) and corresponding
+        extracts
+    '''
     def __init__(self, subject, start, end, box):
         self.subject = subject
         self.start   = start
@@ -1197,18 +1203,30 @@ class Jet:
         self.autorotate()
 
     def get_extract_starts(self):
+        '''
+            Get the extract coordinates associated with the 
+            starting base points
+        '''
         x_s = self.start_extracts['x']
         y_s = self.start_extracts['y']
 
         return np.transpose([x_s, y_s])
 
     def get_extract_ends(self):
+        '''
+            Get the extract coordinates associated with the 
+            final base points
+        '''
         x_e = self.end_extracts['x']
         y_e = self.end_extracts['y']
 
         return np.transpose([x_e, y_e])
 
     def get_extract_boxes(self):
+        '''
+            Get the extract shapely Polygons corresponding
+            to the boxes
+        '''
         boxes = []
         for i in range(len(self.box_extracts['x'])):
             x = self.box_extracts['x'][i]
@@ -1223,9 +1241,15 @@ class Jet:
         return boxes
 
     def plot(self, ax):
+        '''
+            Plot the the data for this jet object. Plots the 
+            start and end clustered points, and the associated 
+            extracts. Also plots the clustered and extracted 
+            box. Also plots a vector from the base to the top of the box
+        '''
         boxplot,   = ax.plot(*self.box.exterior.xy, 'b-')
         startplot, = ax.plot(*self.start, 'bx')
-        endplot,  =ax.plot(*self.end, 'yx')
+        endplot,   = ax.plot(*self.end, 'yx')
 
         start_ext = self.get_extract_starts()
         end_ext   = self.get_extract_ends()
@@ -1255,6 +1279,10 @@ class Jet:
         return [boxplot, startplot, endplot, startextplot, endextplot, *boxextplots, arrowplot]
 
     def autorotate(self):
+        '''
+            Find the rotation of the jet wrt to solar north and 
+            find the base width and height of the box
+        '''
         box_points   = np.transpose(self.box.exterior.xy)[:4,:]
 
         # find the distance between each point and the starting base
@@ -1311,5 +1339,9 @@ class Jet:
         self.width  = np.linalg.norm(self.base_points[1] - self.base_points[0])
 
     def get_width_height_pairs(self):
+        '''
+            Returns the base points and the height line segment
+            points 
+        '''
 
         return self.base_points, self.height_points
