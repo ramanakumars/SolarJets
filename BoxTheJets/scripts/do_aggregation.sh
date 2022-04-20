@@ -2,7 +2,7 @@
 
 usage() { 
 	echo "Usage: $0 [-c <int>]"; 
-	echo "     -c : Number of processors to use for reductions [default=1]" 1>&2; 
+	echo "     -c Number of processors to use for reductions [default=1]" 1>&2; 
 	exit 1; 
 }
 
