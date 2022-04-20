@@ -247,8 +247,12 @@ class Aggregator:
     def filter_by_task(self, task):
         '''
             Return a subset of the data where the task 
-            corresponds to the input value
+            corresponds to the input value. 
+            NOTE: Replaced by `get_box_data` and `get_points_data` above. 
+            This will be removed at some point
 
+            Inputs
+            ------
             task : str
                 the task key (from Zooniverse lab)
         '''
@@ -266,6 +270,8 @@ class Aggregator:
             Plot the aggregated start/end/box for all subjects that have
             a cluster 
 
+            Inputs
+            ------
             task : str
                 the task key (from Zooniverse lab)
         '''
@@ -444,6 +450,10 @@ class Aggregator:
 
     def load_extractor_data(self, point_extractor_file='point_extractor_by_frame_box_the_jets.csv', \
         box_extractor_file='shape_extractor_rotateRectangle_box_the_jets.csv'):
+        '''
+            Loads the file containing the raw extract data (before squashing the frame data 
+            together) and adds the table to the class
+        '''
         self.point_extract_file = point_extractor_file
         self.point_extracts     = ascii.read(point_extractor_file, delimiter=',')
 
@@ -896,6 +906,28 @@ class Aggregator:
         return clust_boxes
 
     def find_unique_jet_points(self, subject, plot=False):
+        '''
+            Similar to `find_unique_jets` but for base points. 
+            Identifies base point clusters which fall within each others
+            radius of confidence and merges them. Confidence radius is determined
+            by the average distance between the extracts that belong in that cluster
+            and the cluster center. 
+
+            Inputs
+            ------
+            subject : int
+                Zooniverse subject ID for the image
+            plot : bool [default=False]
+                flag for whether to plot the intermediate steps
+
+            Returns
+            -------
+            start_points : `numpy.ndarray`
+                Final set of base start points for the jet (post merger)
+            end_points : `numpy.ndarray`
+                Final set of base end points for the jet (post merger)
+
+        '''
         # get the box data and clusters for the two tasks
         data_T1, clusters_T1 = self.get_points_data(subject, 'T1')
         start_dist_T1, end_dist_T1, _  = self.get_cluster_confidence(subject, 'T1')
@@ -1268,6 +1300,18 @@ class Jet:
             start and end clustered points, and the associated 
             extracts. Also plots the clustered and extracted 
             box. Also plots a vector from the base to the top of the box
+
+            Input
+            -----
+            ax : `matplotlib.Axes()`
+                axis object to plot onto. The general use case for this
+                function is to plot onto an existing axis which already has
+                the subjet image and potentially other jet plots
+
+            Returns
+            -------
+            ims : list
+                list of `matplotlib.Artist` objects that was created for this plot
         '''
         boxplot,   = ax.plot(*self.box.exterior.xy, 'b-')
         startplot, = ax.plot(*self.start, 'bx')
@@ -1276,6 +1320,7 @@ class Jet:
         start_ext = self.get_extract_starts()
         end_ext   = self.get_extract_ends()
 
+        # plot the extracts (start, end, box)
         startextplot, = ax.plot(start_ext[:,0], start_ext[:,1], 'k.', markersize=1.5)
         endextplot,   = ax.plot(end_ext[:,0], end_ext[:,1], 'k.', markersize=1.5)
         boxextplots = []
@@ -1283,18 +1328,21 @@ class Jet:
             iou = box.intersection(self.box).area/box.union(self.box).area
             boxextplots.append(ax.plot(*box.exterior.xy, 'k-', linewidth=0.5, alpha=0.65*iou+0.05)[0])
 
-        # also plot the center axis
+        # find the center of the box, so we can draw a vector through it
         center   = np.mean(np.asarray(self.box.exterior.xy)[:,:4], axis=1)
+
+        # create the rotation matrix to rotate a vector from solar north to
+        # the direction of the jet
         rotation = np.asarray([[np.cos(self.angle), -np.sin(self.angle)],
                                [np.sin(self.angle), np.cos(self.angle)]])
+
+        # create a vector by choosing the top of the jet and base of the jet
+        # as the two points
         point0 = center + np.matmul(rotation, np.asarray([0,  self.height/2.]))
         point1 = center + np.matmul(rotation, np.asarray([0, -self.height/2.]))
         vec    = point1 - point0
-        #ax.plot(*np.transpose([point0, point1]), 'k-')
 
         base_points, height_points = self.get_width_height_pairs()
-        #baseplot, = ax.plot(base_points[:,0], base_points[:,1], 'y--')
-        #heightplot, = ax.plot(height_points[:,0], height_points[:,1], 'k--')
 
         arrowplot = ax.arrow(*point0, vec[0], vec[1], color='white', length_includes_head=True, head_width=25)
 
@@ -1364,6 +1412,13 @@ class Jet:
         '''
             Returns the base points and the height line segment
             points 
+
+            Returns
+            -------
+            base_points : `numpy.ndarray`
+                the pair of points that correspond to the base of the jet
+            height_points : `numpy.ndarray`
+                the pair of points that correspond to the height of the jet
         '''
 
         return self.base_points, self.height_points
