@@ -893,7 +893,7 @@ class Aggregator:
                         ax.plot(*bj.exterior.xy, 'k-', linewidth=0.5)
                 for j in range(nboxes):
                     bj = temp_clust_boxes[j]
-                    ax.text(*np.mean(bj.exterior.xy, axis=1), round(ious[j], 2))
+                    ax.text(bj.exterior.xy[0][0], bj.exterior.xy[1][0], round(temp_box_ious[j]*temp_box_count[j], 2), fontsize=10)
 
                 ax.axis('off')
                 plt.show()
@@ -1080,7 +1080,7 @@ class Aggregator:
 
         return np.asarray(clust_starts), np.asarray(clust_ends)
             
-    def filter_classifications(self, subject):
+    def filter_classifications(self, subject, plot=False):
         '''
             Find a list of unique jets in the subject
             and segregate the classifications into each cluster 
@@ -1214,26 +1214,27 @@ class Aggregator:
             for key in combined_ends.keys():
                 jets[index].end_extracts[key.replace('_end','')].append(combined_ends[key][i])
         
-        fig, ax = plt.subplots(1, 1, dpi=150)
+        if plot:
+            fig, ax = plt.subplots(1, 1, dpi=150)
 
 
-        img = get_subject_image(subject)
-        ax.imshow(img)
+            img = get_subject_image(subject)
+            ax.imshow(img)
 
-        x_s = [*point_data_T1['x_start'], *point_data_T5['x_start']]
-        y_s = [*point_data_T1['y_start'], *point_data_T5['y_start']]
+            x_s = [*point_data_T1['x_start'], *point_data_T5['x_start']]
+            y_s = [*point_data_T1['y_start'], *point_data_T5['y_start']]
 
-        for point in zip(x_s, y_s):
-            ax.plot(*point, 'k.', markersize=1.5)
-        for point in unique_starts:
-            ax.plot(*point, 'b.')
-        for point in unique_ends:
-            ax.plot(*point, 'y.')
-        for jet in jets:
-            jet.plot(ax)
+            for point in zip(x_s, y_s):
+                ax.plot(*point, 'k.', markersize=1.5)
+            for point in unique_starts:
+                ax.plot(*point, 'b.')
+            for point in unique_ends:
+                ax.plot(*point, 'y.')
+            for jet in jets:
+                jet.plot(ax)
 
-        ax.axis('off')
-        plt.show()
+            ax.axis('off')
+            plt.show()
 
         return jets
 
@@ -1313,16 +1314,16 @@ class Jet:
             ims : list
                 list of `matplotlib.Artist` objects that was created for this plot
         '''
-        boxplot,   = ax.plot(*self.box.exterior.xy, 'b-')
-        startplot, = ax.plot(*self.start, 'bx')
-        endplot,   = ax.plot(*self.end, 'yx')
+        boxplot,   = ax.plot(*self.box.exterior.xy, 'b-', linewidth=0.8)
+        startplot, = ax.plot(*self.start, 'bx', markersize=1.5)
+        endplot,   = ax.plot(*self.end, 'yx', markersize=1.5)
 
         start_ext = self.get_extract_starts()
         end_ext   = self.get_extract_ends()
 
         # plot the extracts (start, end, box)
-        startextplot, = ax.plot(start_ext[:,0], start_ext[:,1], 'k.', markersize=1.5)
-        endextplot,   = ax.plot(end_ext[:,0], end_ext[:,1], 'k.', markersize=1.5)
+        startextplot, = ax.plot(start_ext[:,0], start_ext[:,1], 'k.', markersize=1.)
+        endextplot,   = ax.plot(end_ext[:,0], end_ext[:,1], 'k.', markersize=1.)
         boxextplots = []
         for box in self.get_extract_boxes():
             iou = box.intersection(self.box).area/box.union(self.box).area
@@ -1344,7 +1345,7 @@ class Jet:
 
         base_points, height_points = self.get_width_height_pairs()
 
-        arrowplot = ax.arrow(*point0, vec[0], vec[1], color='white', length_includes_head=True, head_width=25)
+        arrowplot = ax.arrow(*point0, vec[0], vec[1], color='white', width=2, length_includes_head=True, head_width=10)
 
         return [boxplot, startplot, endplot, startextplot, endextplot, *boxextplots, arrowplot]
 
