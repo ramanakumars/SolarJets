@@ -112,6 +112,34 @@ def create_gif(jets):
     ani = animation.ArtistAnimation(fig, ims)
     ani.save(f'{subject}.gif', writer='imagemagick')
 
+
+def scale_shape(params, gamma):
+    '''
+        scale the box by a factor of gamma 
+        about the center 
+    '''
+    return [
+        # upper left corner moves
+        params[0] + (params[2] * (1 - gamma) / 2),
+        params[1] + (params[3] * (1 - gamma) / 2),
+        # width and height scale
+        gamma * params[2],
+        gamma * params[3],
+        # angle does not change
+        params[4]
+    ]
+
+
+def sigma_shape(params, sigma):
+    '''
+        calculate the upper and lower bounding box
+        based on the sigma of the cluster
+    '''
+    gamma = np.sqrt(1 - sigma)
+    plus_sigma = scale_shape(params, 1 / gamma)
+    minus_sigma = scale_shape(params, gamma)
+    return plus_sigma, minus_sigma
+
 class Aggregator:
     '''
         Single data class to handle different aggregation requirements
@@ -136,6 +164,21 @@ class Aggregator:
 
         for col in self.points_data.colnames:
             self.points_data[col].fill_value = '[]'
+
+    def get_subjects(self):
+        '''
+            Return a list of known subjects in the reduction data
+
+            Returns
+            -------
+            subjects : numpy.ndarray
+                Array of subject IDs on Zooniverse
+        '''
+        points_subjects = self.points_data['subject_id']
+        box_subjects    = self.points_data['subject_id']
+
+        return np.unique([*points_subjects, *box_subjects])
+
 
     def get_points_data(self, subject, task):
         '''
@@ -221,11 +264,13 @@ class Aggregator:
         clusters['h'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_height'][0]))
         clusters['a'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_angle'][0]))
 
+        clusters['sigma']  = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_sigma'][0]))
         clusters['labels'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_labels'][0]))
 
         try:
             clusters['prob'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_probabilities'][0]))
         except KeyError:
+            # OPTICS cluster doesn't have probabilities 
             probs = np.zeros(len(data['x']))
             for i in range(len(data['x'])):
                 labeli = clusters['labels'][i]
@@ -372,6 +417,7 @@ class Aggregator:
         cw_i  = box_clusters['w']
         ch_i  = box_clusters['h']
         ca_i  = box_clusters['a']
+        sg_i  = box_clusters['sigma']
         pb_i  = box_clusters['prob']
 
         img = get_subject_image(subject)
@@ -406,6 +452,21 @@ class Aggregator:
         # plot the clustered box in blue
         for j in range(len(cx_i)):
             clust = get_box_edges(cx_i[j], cy_i[j], cw_i[j], ch_i[j], np.radians(ca_i[j]))
+
+            # calculate the bounding box for the cluster confidence
+            plus_sigma, minus_sigma = sigma_shape([cx_i[j], cy_i[j], cw_i[j], ch_i[j], np.radians(ca_i[j])], sg_i[j])
+            
+            # get the boxes edges
+            plus_sigma_box  = get_box_edges(*plus_sigma)
+            minus_sigma_box = get_box_edges(*minus_sigma)
+
+            # create a fill between the - and + sigma boxes
+            x_p = plus_sigma_box[:,0]
+            y_p = plus_sigma_box[:,1]
+            x_m = minus_sigma_box[:,0]
+            y_m = minus_sigma_box[:,1]
+            ax.fill(np.append(x_p, x_m[::-1]), np.append(y_p, y_m[::-1]), color='white', alpha=0.3)
+
             ax.plot(clust[:,0], clust[:,1], '-', linewidth=0.5, color='blue')
         
         ax.axis('off')
@@ -717,6 +778,8 @@ class Aggregator:
         cw = np.asarray(box_clust['w'])
         ch = np.asarray(box_clust['h'])
         ca = np.asarray(box_clust['a'])
+
+        csg = np.asarray(box_clust['sigma'])
         clb = np.asarray(box_clust['labels'])
 
         # get distances for the start points
@@ -773,7 +836,13 @@ class Aggregator:
             # average all the IoUs for a cluster
             box_iou[i] = np.mean(ious)
 
-        return start_dist, end_dist, box_iou
+        # use the sigma in the box size to 
+        # get the cluster uncertainty
+        box_gamma = np.zeros(len(cx))
+        for i in range(len(cx)):
+            box_gamma[i] = np.sqrt(1. - csg[i])
+
+        return start_dist, end_dist, box_iou, box_gamma
 
 
     def find_unique_jets(self, subject, plot=False):
@@ -797,10 +866,10 @@ class Aggregator:
         '''
         # get the box data and clusters for the two tasks
         data_T1, clusters_T1 = self.get_box_data(subject, 'T1')
-        _, _, box_iou_T1     = self.get_cluster_confidence(subject, 'T1')
+        _, _, box_iou_T1,_   = self.get_cluster_confidence(subject, 'T1')
         data_T5, clusters_T5 = self.get_box_data(subject, 'T5')
         if len(clusters_T5['x']) > 0:
-            _, _, box_iou_T5     = self.get_cluster_confidence(subject, 'T5')
+            _, _, box_iou_T5,_ = self.get_cluster_confidence(subject, 'T5')
         else:
             box_iou_T5 = []
 
@@ -809,6 +878,8 @@ class Aggregator:
         for key in clusters_T1.keys():
             if key=='labels':
                 T5_labels = clusters_T5[key]
+                # move the T5 boxes to a different label so they don't
+                # overlap with the T1 labels
                 T5_labels = [labeli + 1 + np.max(clusters_T1[key]) for labeli in T5_labels if labeli > -1]
                 combined_boxes[key] = [*clusters_T1[key], *T5_labels]
             else:
@@ -818,9 +889,13 @@ class Aggregator:
 
         # add all the boxes to a bucket as long as they are 
         # valid clusters (iou > 0)
-        temp_clust_boxes = []
-        temp_box_ious    = []
-        temp_box_count   = []
+        temp_boxes       = {}
+
+        for key in combined_boxes.keys():
+            temp_boxes[key] = []
+        temp_boxes['box'] = []
+        temp_boxes['count'] = []
+
         for i in range(len(combined_boxes['x'])):
             x = combined_boxes['x'][i]
             y = combined_boxes['y'][i]
@@ -828,34 +903,44 @@ class Aggregator:
             h = combined_boxes['h'][i]
             a = np.radians(combined_boxes['a'][i])
             if combined_boxes['iou'][i] > 1.e-6:
-                temp_clust_boxes.append(Polygon(get_box_edges(x, y, w, h, a)[:4]))
-                temp_box_ious.append(combined_boxes['iou'][i])
-                temp_box_count.append(np.sum(np.asarray(combined_boxes['labels'])==i))
+                #temp_clust_boxes.append(Polygon(get_box_edges(x, y, w, h, a)[:4]))
+                #temp_box_ious.append(combined_boxes['iou'][i])
+                #temp_box_count.append(np.sum(np.asarray(combined_boxes['labels'])==i))
+                temp_boxes['box'].append(Polygon(get_box_edges(x, y, w, h, a)[:4]))
+                temp_boxes['count'].append(np.sum(np.asarray(combined_boxes['labels'])==i))
+                for key in combined_boxes.keys():
+                    temp_boxes[key].append(combined_boxes[key][i])
 
-        temp_clust_boxes = np.asarray(temp_clust_boxes)
-        temp_box_ious    = np.asarray(temp_box_ious)
-        temp_box_count   = np.asarray(temp_box_count)
+        for key in temp_boxes.keys():
+            temp_boxes[key] = np.asarray(temp_boxes[key])
+        #temp_clust_boxes = np.asarray(temp_clust_boxes)
+        #temp_box_ious    = np.asarray(temp_box_ious)
+        #temp_box_count   = np.asarray(temp_box_count)
 
         # now loop over this bucket of polygons
         # and see how well they match with each other
         # we will move the "good" boxes to a new list
         # so we can keep track of progress based on how 
         # many items are still in the queue
-        clust_boxes = []
+        clust_boxes = {}
+        for key in temp_boxes.keys():
+            clust_boxes[key] = []
 
         # we are going to sort by the IoU of each box
         # so that the best boxes are processed first
-        sort_mask = np.argsort(temp_box_ious*temp_box_count)[::-1]
-        temp_clust_boxes = temp_clust_boxes[sort_mask]
-        temp_box_ious    = temp_box_ious[sort_mask]
-        temp_box_count   = temp_box_count[sort_mask]
+        sort_mask = np.argsort(temp_boxes['iou']*temp_boxes['count'])[::-1]
+        for key in temp_boxes.keys():
+            temp_boxes[key] = temp_boxes[key][sort_mask]
+        #temp_clust_boxes = temp_clust_boxes[sort_mask]
+        #temp_box_ious    = temp_box_ious[sort_mask]
+        #temp_box_count   = temp_box_count[sort_mask]
 
-        while len(temp_clust_boxes) > 0:
-            nboxes = len(temp_clust_boxes)
+        while len(temp_boxes['box']) > 0:
+            nboxes = len(temp_boxes['box'])
 
             # compare against the first box in the bucket
             # this will get removed at the end of this loop
-            box0 = temp_clust_boxes[0]
+            box0 = temp_boxes['box'][0]
 
             # to compare iou of box0 with other boxes
             ious = np.ones(nboxes)
@@ -867,41 +952,68 @@ class Aggregator:
 
             for j in range(1, nboxes):
                 # find IoU for box0 vs boxj
-                bj = temp_clust_boxes[j]
+                bj = temp_boxes['box'][j]
                 ious[j] = box0.intersection(bj).area/box0.union(bj).area
 
                 # if the IoU is better than the worst IoU of the classifications
                 # for either box, then we should merge these two
                 # this metric could be changed to be more robust in the future
-                if ious[j] > np.min([temp_box_ious[0], temp_box_ious[j], 0.1]):
+                if ious[j] > np.min([temp_boxes['iou'][0], temp_boxes['iou'][j], 0.1]):
                     merge_mask[j] = True
 
             # add the box with the best iou to the cluster list
-            sum_ious = temp_box_ious[merge_mask]*temp_box_count[merge_mask]
-            clust_boxes.append(\
-                temp_clust_boxes[merge_mask][np.argmax(sum_ious)])
+            #sum_ious = temp_box_ious[merge_mask]*temp_box_count[merge_mask]
+            sum_ious = temp_boxes['iou'][merge_mask]*temp_boxes['count'][merge_mask]
+            #clust_boxes.append(\
+            #    temp_clust_boxes[merge_mask][np.argmax(sum_ious)])
+
+            for key in temp_boxes.keys():
+                best = np.argmin(temp_boxes['sigma'][merge_mask])#np.argmax(sum_ious)
+                clust_boxes[key].append(temp_boxes[key][merge_mask][best])
 
             if plot:
                 fig, ax = plt.subplots(1,1, dpi=150)
                 ax.imshow(get_subject_image(subject))
                 ax.plot(*box0.exterior.xy, 'b-')
                 for j in range(1, nboxes):
-                    bj = temp_clust_boxes[j]
+                    bj = temp_boxes['box'][j]
                     if merge_mask[j]:
                         ax.plot(*bj.exterior.xy, 'k--', linewidth=0.5)
                     else:
                         ax.plot(*bj.exterior.xy, 'k-', linewidth=0.5)
                 for j in range(nboxes):
-                    bj = temp_clust_boxes[j]
-                    ax.text(bj.exterior.xy[0][0], bj.exterior.xy[1][0], round(temp_box_ious[j]*temp_box_count[j], 2), fontsize=10)
+                    bj = temp_boxes['box'][j]
+                    ax.text(bj.exterior.xy[0][0], bj.exterior.xy[1][0], round(temp_boxes['sigma'][j], 2), fontsize=10)
+            
+                    # calculate the bounding box for the cluster confidence
+                    plus_sigma, minus_sigma = sigma_shape(
+                        [temp_boxes['x'][j], 
+                         temp_boxes['y'][j], 
+                         temp_boxes['w'][j], 
+                         temp_boxes['h'][j], 
+                         np.radians(temp_boxes['a'][j])], 
+                        temp_boxes['sigma'][j])
+                    
+                    # get the boxes edges
+                    plus_sigma_box  = get_box_edges(*plus_sigma)
+                    minus_sigma_box = get_box_edges(*minus_sigma)
+
+                    # create a fill between the - and + sigma boxes
+                    x_p = plus_sigma_box[:,0]
+                    y_p = plus_sigma_box[:,1]
+                    x_m = minus_sigma_box[:,0]
+                    y_m = minus_sigma_box[:,1]
+                    ax.fill(np.append(x_p, x_m[::-1]), np.append(y_p, y_m[::-1]), color='white', alpha=0.25)
 
                 ax.axis('off')
                 plt.show()
             
             # and remove all the overlapping boxes from the list
-            temp_clust_boxes = np.delete(temp_clust_boxes, merge_mask)
-            temp_box_ious    = np.delete(temp_box_ious, merge_mask)
-            temp_box_count   = np.delete(temp_box_count, merge_mask)
+            for key in temp_boxes.keys():
+                temp_boxes[key] = np.delete(temp_boxes[key], merge_mask)
+            #temp_clust_boxes = np.delete(temp_clust_boxes, merge_mask)
+            #temp_box_ious    = np.delete(temp_box_ious, merge_mask)
+            #temp_box_count   = np.delete(temp_box_count, merge_mask)
 
         return clust_boxes
 
@@ -930,9 +1042,9 @@ class Aggregator:
         '''
         # get the box data and clusters for the two tasks
         data_T1, clusters_T1 = self.get_points_data(subject, 'T1')
-        start_dist_T1, end_dist_T1, _  = self.get_cluster_confidence(subject, 'T1')
+        start_dist_T1, end_dist_T1, _, _  = self.get_cluster_confidence(subject, 'T1')
         data_T5, clusters_T5 = self.get_points_data(subject, 'T5')
-        start_dist_T5, end_dist_T5, _  = self.get_cluster_confidence(subject, 'T5')
+        start_dist_T5, end_dist_T5, _, _  = self.get_cluster_confidence(subject, 'T5')
 
         # combine the box data from the two tasks
         combined_starts = {}
@@ -1132,7 +1244,7 @@ class Aggregator:
         jets = []
 
         # for each jet box, find the best start/end points
-        for i, jeti in enumerate(unique_jets):
+        for i, jeti in enumerate(unique_jets['box']):
             box_points = np.transpose(jeti.exterior.xy)[:4]
 
             dists = []
@@ -1148,8 +1260,17 @@ class Aggregator:
                 dists.append(disti)
             
             best_end = unique_ends[np.argmin(dists)]
+            jet_params = [unique_jets['x'][i], 
+                            unique_jets['y'][i], 
+                            unique_jets['w'][i], 
+                            unique_jets['h'][i], 
+                            np.radians(unique_jets['a'][i])]
 
-            jets.append(Jet(subject, best_start, best_end, jeti))
+            jet_obj_i = Jet(subject, best_start, best_end, jeti, jet_params)
+
+            jet_obj_i.sigma = unique_jets['sigma'][i]
+
+            jets.append(jet_obj_i)
         
 
         # add the raw classifications back to the jet object
@@ -1166,8 +1287,8 @@ class Aggregator:
 
             # and the find the iou of this box wrt to the 
             # unique jet clusters
-            ious = np.zeros(len(unique_jets))
-            for j, jet in enumerate(unique_jets):
+            ious = np.zeros(len(unique_jets['box']))
+            for j, jet in enumerate(unique_jets['box']):
                 ious[j] = boxi.intersection(jet).area/boxi.union(jet).area
 
             # we're going to find the "best" cluster i.e., the one with the 
@@ -1245,11 +1366,13 @@ class Jet:
         and the box (as a `shapely.Polygon` object) and corresponding
         extracts
     '''
-    def __init__(self, subject, start, end, box):
+    def __init__(self, subject, start, end, box, cluster_values):
         self.subject = subject
         self.start   = start
         self.end     = end
         self.box     = box
+
+        self.cluster_values = cluster_values
         
         self.box_extracts   = {'x': [], 'y': [], 'w': [], 'h': [], 'a': []}
         self.start_extracts = {'x': [], 'y': []}
@@ -1346,6 +1469,21 @@ class Jet:
         base_points, height_points = self.get_width_height_pairs()
 
         arrowplot = ax.arrow(*point0, vec[0], vec[1], color='white', width=2, length_includes_head=True, head_width=10)
+
+        if hasattr(self, 'sigma'):
+            # calculate the bounding box for the cluster confidence
+            plus_sigma, minus_sigma = sigma_shape(self.cluster_values, self.sigma)
+            
+            # get the boxes edges
+            plus_sigma_box  = get_box_edges(*plus_sigma)
+            minus_sigma_box = get_box_edges(*minus_sigma)
+
+            # create a fill between the - and + sigma boxes
+            x_p = plus_sigma_box[:,0]
+            y_p = plus_sigma_box[:,1]
+            x_m = minus_sigma_box[:,0]
+            y_m = minus_sigma_box[:,1]
+            ax.fill(np.append(x_p, x_m[::-1]), np.append(y_p, y_m[::-1]), color='white', alpha=0.3)
 
         return [boxplot, startplot, endplot, startextplot, endextplot, *boxextplots, arrowplot]
 
