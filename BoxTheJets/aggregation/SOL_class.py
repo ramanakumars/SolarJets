@@ -287,7 +287,7 @@ class SOL:
 
                     # we will limit to 2 frames (each frame is 5 min)
                     time_metric[k,j]  = np.abs( (times[j] - times[k]).astype('timedelta64[s]')\
-                                               .astype(float))/(10*60)
+                                               .astype(float))/(5*60+12)
 
         distance_metric = point_metric/np.percentile(point_metric[np.isfinite(point_metric)&(point_metric>0)], 90) + \
                             2.*box_metric
