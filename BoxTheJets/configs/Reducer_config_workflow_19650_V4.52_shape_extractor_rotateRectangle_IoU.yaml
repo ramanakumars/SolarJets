@@ -3,6 +3,6 @@ reducer_config:
         shape: rotateRectangle
         min_cluster_size: 2
         min_samples: 2
-        max_eps: 0.1,
+        max_eps: 0.1
         allow_single_cluster: True
         metric_type: IoU
