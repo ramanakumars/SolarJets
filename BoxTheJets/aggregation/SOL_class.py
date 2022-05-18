@@ -225,7 +225,7 @@ class SOL:
             
             
             
-    def filter_jet_clusters(self, SOL_event):
+    def filter_jet_clusters(self, SOL_event, eps=2., time_eps=2.):
         # first, get a list of subjects for
         # this event
         subjects  = self.get_subjects(SOL_event)
@@ -298,9 +298,6 @@ class SOL:
         indices  = np.arange(len(jets))
         labels   = -1.*np.ones(len(jets))
         subjects = np.asarray([jet.subject for jet in jets])
-
-        eps      = 2.
-        time_eps = 2.#*np.nanmedian(distance_metric)
 
         print(f"Using eps={eps} and time_eps={time_eps*30} min")
 
