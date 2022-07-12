@@ -3,7 +3,7 @@ from astropy.io import ascii
 import ast
 
 ## point extractor
-file = 'extracts/point_extractor_by_frame_box_the_jets.csv'
+file = 'extracts/point_extractor_by_frame_box_the_jets_scaled.csv'
 
 data = ascii.read(file, delimiter=',')
 
@@ -72,7 +72,7 @@ ascii.write(data, file.replace('.csv', '_squashed.csv'), overwrite=True, delimit
 ascii.write(data_merged, file.replace('.csv', '_squashed_merged.csv'), overwrite=True, delimiter=',')
 
 ## shape extractor
-file = 'extracts/shape_extractor_rotateRectangle_box_the_jets.csv'
+file = 'extracts/shape_extractor_rotateRectangle_box_the_jets_scaled.csv'
 
 data = ascii.read(file, delimiter=',')
 
