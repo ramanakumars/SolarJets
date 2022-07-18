@@ -1,5 +1,0 @@
-extractor_config:
-    question_extractor:
-    -   task: T0
-workflow_id: 18563
-workflow_version: '5.19'
