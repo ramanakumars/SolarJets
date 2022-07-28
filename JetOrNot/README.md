@@ -56,17 +56,17 @@ To run the analysis, you will need the [Panoptes Python Client](https://github.c
 Check the `jetornot.ipynb` for the full analysis or `jet_time_distribution.ipynb` for getting the temporal distribution of jets. 
 
 
-### Under the hood of `do_aggregation.sh`
+## Under the hood of `do_aggregation.sh`
 
 These are the individual components of the aggregation script:
 
-#### Getting the extracts
+### Getting the extracts
 Now, we can generate the extracts from the classification data by doing (in the `extracts/` directory):
 ```bash
 panoptes_aggregation extract ../jet-or-not-classifications.csv ../configs/Extractor_config_workflow_18563_V5.19.yaml -o jet_or_not
 ```
 
-#### Trimming the beta classifications
+### Trimming the beta classifications
 This will generate the `question_extractor_jet_or_not.csv` which contains all the extracts from the classification data. Note that for this workflow, this also includes the beta and charlie classifications, so we need to trim those. To do this run,
 ```bash
 python3 ../scripts/trim_beta_classifications.py question_extractor_jet_or_not.csv
@@ -74,7 +74,7 @@ python3 ../scripts/trim_beta_classifications.py question_extractor_jet_or_not.cs
 
 This will produce a `question_extractor_trimmed.csv` which only contains classifications after Dec 7, 2021. This is what we will use for reductions
 
-#### Generating the reduced data
+### Generating the reduced data
 Now, let's generate the reducted data. To do this, run (from the `reductions/` directory):
 ```bash
 panoptes_aggregation reduce ../extracts/question_extractor_trimmed.csv ../configs/Reducer_config_workflow_18563_V5.19_question_extractor.yaml -o jet_or_not 
