@@ -2,7 +2,7 @@ from aggregation import QuestionResult
 from astropy.io import ascii
 
 #Make the csv files 
-data_T3T4_file = ascii.read('reductions/question_reducer_box_the_jets_merged.csv', format='csv')
+data_T3T4_file = ascii.read('reductions/question_reducer_box_the_jets.csv', format='csv')
 
 #initiate the filled data set as a class
 data_T3_file=data_T3T4_file[data_T3T4_file['task']=='T3']
