@@ -136,6 +136,15 @@ class SOL:
         notes_time=np.array([parse(N[t]) for t in range(len(N))],dtype='datetime64')
         return notes_time, flag
     
+    def get_filenames0(self, SOL_event):
+        '''
+        Get the filenames of the first image for each subjects. 
+        filenames0: name of first image in the subject
+        '''
+        i=np.argwhere(self.SOL_small==SOL_event)[0][0]
+        files=np.array(self.filenames0[i].split(' '))
+        return files
+    
     def get_box_dim(self,SOL_event, p=True):  
         '''
         Get the height and width arrays of the subjects inside a given SOL event
