@@ -2,10 +2,11 @@ from multiprocessing.sharedctypes import Value
 import numpy as np
 from astropy.io import ascii
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import ast
 import json
 from panoptes_client import Panoptes, Subject, Workflow
-from skimage import io
+from skimage import io, transform
 import getpass
 from shapely.geometry import Polygon, Point
 
@@ -48,6 +49,10 @@ def get_subject_image(subject, frame=7):
     
     img = io.imread(frame0_url)
 
+    # for subjects that have an odd size, resize them
+    if img.shape[0] != 1920:
+        img = transform.resize(img, (1440, 1920))
+
     return img
 
 def get_point_distance(x0, y0, x1, y1):
@@ -72,6 +77,69 @@ def get_box_distance(box1, box2):
     return np.average(mindist)
 
 
+def create_gif(jets):
+    '''
+        Create a gif of the jet objects showing the 
+        image and the plots from the `Jet.plot()` method
+    '''
+    # get the subject that the jet belongs to
+    subject = jets[0].subject
+
+    # create a temp plot so that we can get a size estimate
+    fig, ax = plt.subplots(1,1, dpi=150)
+    ax.imshow(get_subject_image(subject, 0))
+    ax.axis('off')
+    fig.tight_layout()
+
+    # loop through the frames and plot
+    ims = []
+    for i in range(15):
+        img = get_subject_image(subject, i)
+
+        # first, plot the image
+        im1 = ax.imshow(img)
+
+        # for each jet, plot all the details
+        # and add each plot artist to the list
+        jetims = []
+        for jet in jets:
+            jetims.extend(jet.plot(ax))
+        
+        # combine all the plot artists together
+        ims.append([im1, *jetims])
+
+    # save the animation as a gif
+    ani = animation.ArtistAnimation(fig, ims)
+    ani.save(f'{subject}.gif', writer='imagemagick')
+
+
+def scale_shape(params, gamma):
+    '''
+        scale the box by a factor of gamma 
+        about the center 
+    '''
+    return [
+        # upper left corner moves
+        params[0] + (params[2] * (1 - gamma) / 2),
+        params[1] + (params[3] * (1 - gamma) / 2),
+        # width and height scale
+        gamma * params[2],
+        gamma * params[3],
+        # angle does not change
+        params[4]
+    ]
+
+
+def sigma_shape(params, sigma):
+    '''
+        calculate the upper and lower bounding box
+        based on the sigma of the cluster
+    '''
+    gamma = np.sqrt(1 - sigma)
+    plus_sigma = scale_shape(params, 1 / gamma)
+    minus_sigma = scale_shape(params, gamma)
+    return plus_sigma, minus_sigma
+
 class Aggregator:
     '''
         Single data class to handle different aggregation requirements
@@ -92,10 +160,25 @@ class Aggregator:
         self.box_data = ascii.read(box_file, delimiter=',')
 
         for col in self.box_data.colnames:
-            self.box_data[col].fill_value    = 'None'
+            self.box_data[col].fill_value    = '[]'
 
         for col in self.points_data.colnames:
-            self.points_data[col].fill_value = 'None'
+            self.points_data[col].fill_value = '[]'
+
+    def get_subjects(self):
+        '''
+            Return a list of known subjects in the reduction data
+
+            Returns
+            -------
+            subjects : numpy.ndarray
+                Array of subject IDs on Zooniverse
+        '''
+        points_subjects = self.points_data['subject_id']
+        box_subjects    = self.points_data['subject_id']
+
+        return np.unique([*points_subjects, *box_subjects])
+
 
     def get_points_data(self, subject, task):
         '''
@@ -119,23 +202,25 @@ class Aggregator:
         '''
         points_data = self.points_data[:][(self.points_data['subject_id']==subject)&(self.points_data['task']==task)]
 
+        points_data = points_data.filled()
+
         data = {}
 
         data['x_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_x'][0]))
         data['y_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_points_y'][0]))
-        data['x_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_x'][0]))
-        data['y_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_y'][0]))
+        data['x_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_x'][0]))
+        data['y_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_points_y'][0]))
 
         clusters = {}
         clusters['x_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_x'][0]))
         clusters['y_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_clusters_y'][0]))
-        clusters['x_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_x'][0]))
-        clusters['y_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_y'][0]))
+        clusters['x_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_x'][0]))
+        clusters['y_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_clusters_y'][0]))
 
         clusters['prob_start']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_probabilities'][0]))
         clusters['labels_start'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool0_cluster_labels'][0]))
-        clusters['prob_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
-        clusters['labels_end'] = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_labels'][0]))
+        clusters['prob_end']     = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
+        clusters['labels_end']   = np.asarray(ast.literal_eval(points_data[f'data.frame0.{task}_tool1_cluster_labels'][0]))
 
         return data, clusters
 
@@ -161,6 +246,8 @@ class Aggregator:
         '''
         box_data = self.box_data[:][(self.box_data['subject_id']==subject)&(self.box_data['task']==task)]
 
+        box_data = box_data.filled()
+
         data = {}
 
         data['x'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_rotateRectangle_x'][0]))
@@ -176,16 +263,41 @@ class Aggregator:
         clusters['w'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_width'][0]))
         clusters['h'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_height'][0]))
         clusters['a'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_angle'][0]))
-        clusters['prob'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_probabilities'][0]))
+
+        clusters['sigma']  = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_clusters_sigma'][0]))
         clusters['labels'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_labels'][0]))
 
+        try:
+            clusters['prob'] = np.asarray(ast.literal_eval(box_data[f'data.frame0.{task}_tool2_cluster_probabilities'][0]))
+        except KeyError:
+            # OPTICS cluster doesn't have probabilities 
+            probs = np.zeros(len(data['x']))
+            for i in range(len(data['x'])):
+                labeli = clusters['labels'][i]
+                if labeli == -1:
+                    probs[i] = 0
+                else:
+                    boxi_data   = Polygon(get_box_edges(data['x'][i], data['y'][i], 
+                                                      data['w'][i], data['h'][i], 
+                                                      np.radians(data['a'][i]))[:4])
+                    boxi_clust = Polygon(get_box_edges(clusters['x'][labeli], clusters['y'][labeli], 
+                                                      clusters['w'][labeli], clusters['h'][labeli], 
+                                                      np.radians(clusters['a'][labeli]))[:4])
+
+                    probs[i] = boxi_data.intersection(boxi_clust).area/boxi_data.union(boxi_clust).area
+            clusters['prob'] = probs
+                
         return data, clusters
 
     def filter_by_task(self, task):
         '''
             Return a subset of the data where the task 
-            corresponds to the input value
+            corresponds to the input value. 
+            NOTE: Replaced by `get_box_data` and `get_points_data` above. 
+            This will be removed at some point
 
+            Inputs
+            ------
             task : str
                 the task key (from Zooniverse lab)
         '''
@@ -203,6 +315,8 @@ class Aggregator:
             Plot the aggregated start/end/box for all subjects that have
             a cluster 
 
+            Inputs
+            ------
             task : str
                 the task key (from Zooniverse lab)
         '''
@@ -303,6 +417,7 @@ class Aggregator:
         cw_i  = box_clusters['w']
         ch_i  = box_clusters['h']
         ca_i  = box_clusters['a']
+        sg_i  = box_clusters['sigma']
         pb_i  = box_clusters['prob']
 
         img = get_subject_image(subject)
@@ -337,6 +452,21 @@ class Aggregator:
         # plot the clustered box in blue
         for j in range(len(cx_i)):
             clust = get_box_edges(cx_i[j], cy_i[j], cw_i[j], ch_i[j], np.radians(ca_i[j]))
+
+            # calculate the bounding box for the cluster confidence
+            plus_sigma, minus_sigma = sigma_shape([cx_i[j], cy_i[j], cw_i[j], ch_i[j], np.radians(ca_i[j])], sg_i[j])
+            
+            # get the boxes edges
+            plus_sigma_box  = get_box_edges(*plus_sigma)
+            minus_sigma_box = get_box_edges(*minus_sigma)
+
+            # create a fill between the - and + sigma boxes
+            x_p = plus_sigma_box[:,0]
+            y_p = plus_sigma_box[:,1]
+            x_m = minus_sigma_box[:,0]
+            y_m = minus_sigma_box[:,1]
+            ax.fill(np.append(x_p, x_m[::-1]), np.append(y_p, y_m[::-1]), color='white', alpha=0.3)
+
             ax.plot(clust[:,0], clust[:,1], '-', linewidth=0.5, color='blue')
         
         ax.axis('off')
@@ -381,6 +511,10 @@ class Aggregator:
 
     def load_extractor_data(self, point_extractor_file='point_extractor_by_frame_box_the_jets.csv', \
         box_extractor_file='shape_extractor_rotateRectangle_box_the_jets.csv'):
+        '''
+            Loads the file containing the raw extract data (before squashing the frame data 
+            together) and adds the table to the class
+        '''
         self.point_extract_file = point_extractor_file
         self.point_extracts     = ascii.read(point_extractor_file, delimiter=',')
 
@@ -644,6 +778,8 @@ class Aggregator:
         cw = np.asarray(box_clust['w'])
         ch = np.asarray(box_clust['h'])
         ca = np.asarray(box_clust['a'])
+
+        csg = np.asarray(box_clust['sigma'])
         clb = np.asarray(box_clust['labels'])
 
         # get distances for the start points
@@ -700,7 +836,13 @@ class Aggregator:
             # average all the IoUs for a cluster
             box_iou[i] = np.mean(ious)
 
-        return start_dist, end_dist, box_iou
+        # use the sigma in the box size to 
+        # get the cluster uncertainty
+        box_gamma = np.zeros(len(cx))
+        for i in range(len(cx)):
+            box_gamma[i] = np.sqrt(1. - csg[i])
+
+        return start_dist, end_dist, box_iou, box_gamma
 
 
     def find_unique_jets(self, subject, plot=False):
@@ -724,21 +866,36 @@ class Aggregator:
         '''
         # get the box data and clusters for the two tasks
         data_T1, clusters_T1 = self.get_box_data(subject, 'T1')
-        _, _, box_iou_T1     = self.get_cluster_confidence(subject, 'T1')
+        _, _, box_iou_T1,_   = self.get_cluster_confidence(subject, 'T1')
         data_T5, clusters_T5 = self.get_box_data(subject, 'T5')
-        _, _, box_iou_T5     = self.get_cluster_confidence(subject, 'T5')
+        if len(clusters_T5['x']) > 0:
+            _, _, box_iou_T5,_ = self.get_cluster_confidence(subject, 'T5')
+        else:
+            box_iou_T5 = []
 
         # combine the box data from the two tasks
         combined_boxes = {}
         for key in clusters_T1.keys():
-            combined_boxes[key] = [*clusters_T1[key], *clusters_T5[key]]
+            if key=='labels':
+                T5_labels = clusters_T5[key]
+                # move the T5 boxes to a different label so they don't
+                # overlap with the T1 labels
+                T5_labels = [labeli + 1 + np.max(clusters_T1[key]) for labeli in T5_labels if labeli > -1]
+                combined_boxes[key] = [*clusters_T1[key], *T5_labels]
+            else:
+                combined_boxes[key] = [*clusters_T1[key], *clusters_T5[key]]
 
         combined_boxes['iou'] = [*box_iou_T1, *box_iou_T5]
 
         # add all the boxes to a bucket as long as they are 
         # valid clusters (iou > 0)
-        temp_clust_boxes = []
-        temp_box_ious    = []
+        temp_boxes       = {}
+
+        for key in combined_boxes.keys():
+            temp_boxes[key] = []
+        temp_boxes['box'] = []
+        temp_boxes['count'] = []
+
         for i in range(len(combined_boxes['x'])):
             x = combined_boxes['x'][i]
             y = combined_boxes['y'][i]
@@ -746,24 +903,44 @@ class Aggregator:
             h = combined_boxes['h'][i]
             a = np.radians(combined_boxes['a'][i])
             if combined_boxes['iou'][i] > 1.e-6:
-                temp_clust_boxes.append(Polygon(get_box_edges(x, y, w, h, a)[:4]))
-                temp_box_ious.append(combined_boxes['iou'][i])
+                #temp_clust_boxes.append(Polygon(get_box_edges(x, y, w, h, a)[:4]))
+                #temp_box_ious.append(combined_boxes['iou'][i])
+                #temp_box_count.append(np.sum(np.asarray(combined_boxes['labels'])==i))
+                temp_boxes['box'].append(Polygon(get_box_edges(x, y, w, h, a)[:4]))
+                temp_boxes['count'].append(np.sum(np.asarray(combined_boxes['labels'])==i))
+                for key in combined_boxes.keys():
+                    temp_boxes[key].append(combined_boxes[key][i])
 
-        temp_clust_boxes = np.asarray(temp_clust_boxes)
-        temp_box_ious    = np.asarray(temp_box_ious)
+        for key in temp_boxes.keys():
+            temp_boxes[key] = np.asarray(temp_boxes[key])
+        #temp_clust_boxes = np.asarray(temp_clust_boxes)
+        #temp_box_ious    = np.asarray(temp_box_ious)
+        #temp_box_count   = np.asarray(temp_box_count)
 
         # now loop over this bucket of polygons
         # and see how well they match with each other
         # we will move the "good" boxes to a new list
         # so we can keep track of progress based on how 
         # many items are still in the queue
-        clust_boxes = []
-        while len(temp_clust_boxes) > 0:
-            nboxes = len(temp_clust_boxes)
+        clust_boxes = {}
+        for key in temp_boxes.keys():
+            clust_boxes[key] = []
+
+        # we are going to sort by the IoU of each box
+        # so that the best boxes are processed first
+        sort_mask = np.argsort(temp_boxes['iou']*temp_boxes['count'])[::-1]
+        for key in temp_boxes.keys():
+            temp_boxes[key] = temp_boxes[key][sort_mask]
+        #temp_clust_boxes = temp_clust_boxes[sort_mask]
+        #temp_box_ious    = temp_box_ious[sort_mask]
+        #temp_box_count   = temp_box_count[sort_mask]
+
+        while len(temp_boxes['box']) > 0:
+            nboxes = len(temp_boxes['box'])
 
             # compare against the first box in the bucket
             # this will get removed at the end of this loop
-            box0 = temp_clust_boxes[0]
+            box0 = temp_boxes['box'][0]
 
             # to compare iou of box0 with other boxes
             ious = np.ones(nboxes)
@@ -775,41 +952,99 @@ class Aggregator:
 
             for j in range(1, nboxes):
                 # find IoU for box0 vs boxj
-                bj = temp_clust_boxes[j]
+                bj = temp_boxes['box'][j]
                 ious[j] = box0.intersection(bj).area/box0.union(bj).area
 
                 # if the IoU is better than the worst IoU of the classifications
                 # for either box, then we should merge these two
                 # this metric could be changed to be more robust in the future
-                if ious[j] > np.min([temp_box_ious[0], temp_box_ious[j]]):
+                if ious[j] > np.min([temp_boxes['iou'][0], temp_boxes['iou'][j], 0.1]):
                     merge_mask[j] = True
 
             # add the box with the best iou to the cluster list
-            clust_boxes.append(\
-                temp_clust_boxes[merge_mask][np.argmax(temp_box_ious[merge_mask])])
+            #sum_ious = temp_box_ious[merge_mask]*temp_box_count[merge_mask]
+            sum_ious = temp_boxes['iou'][merge_mask]*temp_boxes['count'][merge_mask]
+            #clust_boxes.append(\
+            #    temp_clust_boxes[merge_mask][np.argmax(sum_ious)])
+
+            for key in temp_boxes.keys():
+                best = np.argmin(temp_boxes['sigma'][merge_mask])#np.argmax(sum_ious)
+                clust_boxes[key].append(temp_boxes[key][merge_mask][best])
 
             if plot:
                 fig, ax = plt.subplots(1,1, dpi=150)
                 ax.imshow(get_subject_image(subject))
                 ax.plot(*box0.exterior.xy, 'b-')
                 for j in range(1, nboxes):
-                    bj = temp_clust_boxes[j]
-                    ax.plot(*bj.exterior.xy, 'k-', linewidth=0.5)
+                    bj = temp_boxes['box'][j]
+                    if merge_mask[j]:
+                        ax.plot(*bj.exterior.xy, 'k--', linewidth=0.5)
+                    else:
+                        ax.plot(*bj.exterior.xy, 'k-', linewidth=0.5)
+                for j in range(nboxes):
+                    bj = temp_boxes['box'][j]
+                    ax.text(bj.exterior.xy[0][0], bj.exterior.xy[1][0], round(temp_boxes['sigma'][j], 2), fontsize=10)
+            
+                    # calculate the bounding box for the cluster confidence
+                    plus_sigma, minus_sigma = sigma_shape(
+                        [temp_boxes['x'][j], 
+                         temp_boxes['y'][j], 
+                         temp_boxes['w'][j], 
+                         temp_boxes['h'][j], 
+                         np.radians(temp_boxes['a'][j])], 
+                        temp_boxes['sigma'][j])
+                    
+                    # get the boxes edges
+                    plus_sigma_box  = get_box_edges(*plus_sigma)
+                    minus_sigma_box = get_box_edges(*minus_sigma)
+
+                    # create a fill between the - and + sigma boxes
+                    x_p = plus_sigma_box[:,0]
+                    y_p = plus_sigma_box[:,1]
+                    x_m = minus_sigma_box[:,0]
+                    y_m = minus_sigma_box[:,1]
+                    ax.fill(np.append(x_p, x_m[::-1]), np.append(y_p, y_m[::-1]), color='white', alpha=0.25)
+
                 ax.axis('off')
                 plt.show()
             
             # and remove all the overlapping boxes from the list
-            temp_clust_boxes = np.delete(temp_clust_boxes, merge_mask)
-            temp_box_ious    = np.delete(temp_box_ious, merge_mask)
+            for key in temp_boxes.keys():
+                temp_boxes[key] = np.delete(temp_boxes[key], merge_mask)
+            #temp_clust_boxes = np.delete(temp_clust_boxes, merge_mask)
+            #temp_box_ious    = np.delete(temp_box_ious, merge_mask)
+            #temp_box_count   = np.delete(temp_box_count, merge_mask)
 
         return clust_boxes
 
     def find_unique_jet_points(self, subject, plot=False):
+        '''
+            Similar to `find_unique_jets` but for base points. 
+            Identifies base point clusters which fall within each others
+            radius of confidence and merges them. Confidence radius is determined
+            by the average distance between the extracts that belong in that cluster
+            and the cluster center. 
+
+            Inputs
+            ------
+            subject : int
+                Zooniverse subject ID for the image
+            plot : bool [default=False]
+                flag for whether to plot the intermediate steps
+
+            Returns
+            -------
+            start_points : `numpy.ndarray`
+                Final set of base start points for the jet (post merger)
+            end_points : `numpy.ndarray`
+                Final set of base end points for the jet (post merger)
+
+        '''
         # get the box data and clusters for the two tasks
         data_T1, clusters_T1 = self.get_points_data(subject, 'T1')
-        start_dist_T1, end_dist_T1, _  = self.get_cluster_confidence(subject, 'T1')
+        start_dist_T1, end_dist_T1, _, _  = self.get_cluster_confidence(subject, 'T1')
         data_T5, clusters_T5 = self.get_points_data(subject, 'T5')
-        start_dist_T5, end_dist_T5, _  = self.get_cluster_confidence(subject, 'T5')
+        start_dist_T5, end_dist_T5, _, _  = self.get_cluster_confidence(subject, 'T5')
 
         # combine the box data from the two tasks
         combined_starts = {}
@@ -955,9 +1190,9 @@ class Aggregator:
             temp_clust_ends = np.delete(temp_clust_ends, merge_mask, axis=0)
             temp_end_dists  = np.delete(temp_end_dists, merge_mask)
 
-        return clust_starts, clust_ends
+        return np.asarray(clust_starts), np.asarray(clust_ends)
             
-    def filter_classifications(self, subject):
+    def filter_classifications(self, subject, plot=False):
         '''
             Find a list of unique jets in the subject
             and segregate the classifications into each cluster 
@@ -983,18 +1218,62 @@ class Aggregator:
         data_T1, _ = self.get_box_data(subject, 'T1')
         data_T5, _ = self.get_box_data(subject, 'T5')
         
+        point_data_T1, _ = self.get_points_data(subject, 'T1')
+        point_data_T5, _ = self.get_points_data(subject, 'T5')
+        
         # and the unique clusters
-        unique_jets = self.find_unique_jets(subject)
+        unique_jets                = self.find_unique_jets(subject)
         unique_starts, unique_ends = self.find_unique_jet_points(subject)
 
         # combine the T1 and T5 raw data
         combined_boxes = {}
-        filtered_box_data = [{} for i in range(len(unique_jets))]
         for key in data_T1.keys():
             combined_boxes[key] = [*data_T1[key], *data_T5[key]]
-            for j in range(len(unique_jets)):
-                filtered_box_data[j][key] = []
 
+        # combined start/end points
+        combined_starts = {}
+        for key in point_data_T1.keys():
+            if 'start' in key:
+                combined_starts[key] = [*point_data_T1[key], *point_data_T5[key]]
+        
+        combined_ends = {}
+        for key in point_data_T1.keys():
+            if 'end' in key:
+                combined_ends[key] = [*point_data_T1[key], *point_data_T5[key]]
+
+        jets = []
+
+        # for each jet box, find the best start/end points
+        for i, jeti in enumerate(unique_jets['box']):
+            box_points = np.transpose(jeti.exterior.xy)[:4]
+
+            dists = []
+            for j, point in enumerate(unique_starts):
+                disti = np.median([np.linalg.norm(point-pointi) for pointi in box_points])
+                dists.append(disti)
+
+            best_start = unique_starts[np.argmin(dists)]
+            
+            dists = []
+            for j, point in enumerate(unique_ends):
+                disti = np.median([np.linalg.norm(point-pointi)*np.linalg.norm(point - best_start) for pointi in box_points])
+                dists.append(disti)
+            
+            best_end = unique_ends[np.argmin(dists)]
+            jet_params = [unique_jets['x'][i], 
+                            unique_jets['y'][i], 
+                            unique_jets['w'][i], 
+                            unique_jets['h'][i], 
+                            np.radians(unique_jets['a'][i])]
+
+            jet_obj_i = Jet(subject, best_start, best_end, jeti, jet_params)
+
+            jet_obj_i.sigma = unique_jets['sigma'][i]
+
+            jets.append(jet_obj_i)
+        
+
+        # add the raw classifications back to the jet object
         # loop through the classifications
         for i in range(len(combined_boxes['x'])):
             x = combined_boxes['x'][i]
@@ -1008,8 +1287,8 @@ class Aggregator:
 
             # and the find the iou of this box wrt to the 
             # unique jet clusters
-            ious = np.zeros(len(unique_jets))
-            for j, jet in enumerate(unique_jets):
+            ious = np.zeros(len(unique_jets['box']))
+            for j, jet in enumerate(unique_jets['box']):
                 ious[j] = boxi.intersection(jet).area/boxi.union(jet).area
 
             # we're going to find the "best" cluster i.e., the one with the 
@@ -1018,22 +1297,267 @@ class Aggregator:
 
             # and add the raw data to that cluster
             for key in data_T1.keys():
-                filtered_box_data[index][key].append(combined_boxes[key][i])
+                jets[index].box_extracts[key].append(combined_boxes[key][i])
 
-        # for j, jet in enumerate(unique_jets):
-        #     fig, ax = plt.subplots(1,1, dpi=150)
-        #     ax.imshow(get_subject_image(subject))
-        #     ax.plot(*jet.exterior.xy, 'b-')
-        #     box_data_j = filtered_box_data[j]
-        #     for i in range(len(box_data_j['x'])):
-        #         x = box_data_j['x'][i]
-        #         y = box_data_j['y'][i]
-        #         w = box_data_j['w'][i]
-        #         h = box_data_j['h'][i]
-        #         a = np.radians(box_data_j['a'][i])
-        #         boxi = Polygon(get_box_edges(x, y, w, h, a)[:4])
-        #         ax.plot(*boxi.exterior.xy, '-', color='gray', linewidth=0.5)
-        #         ax.axis('off')
-        #     plt.show()
+        # now do the same for the base/end points
+        for i in range(len(combined_starts['x_start'])):
+            x = combined_starts['x_start'][i]
+            y = combined_starts['y_start'][i]
 
-        return filtered_box_data, unique_jets
+            # and the find the distance between this point and 
+            # the cluster points
+            dists = np.zeros(len(jets))
+            for j, jet in enumerate(jets):
+                dists[j] = get_point_distance(x, y, *jet.start)
+
+            # we're going to find the "best" cluster i.e., the one with the 
+            # lowest distance
+            index = np.argmin(dists)
+            
+            # and add the raw data to that cluster
+            for key in combined_starts.keys():
+                jets[index].start_extracts[key.replace('_start', '')].append(combined_starts[key][i])
+
+        # same for the ends
+        for i in range(len(combined_ends['x_end'])):
+            x = combined_ends['x_end'][i]
+            y = combined_ends['y_end'][i]
+
+            dists = np.zeros(len(jets))
+            for j, jet in enumerate(jets):
+                dists[j] = get_point_distance(x, y, *jet.end)
+
+            # we're going to find the "best" cluster i.e., the one with the 
+            # lowest distance
+            index = np.argmin(dists)
+            
+            # and add the raw data to that cluster
+            for key in combined_ends.keys():
+                jets[index].end_extracts[key.replace('_end','')].append(combined_ends[key][i])
+        
+        if plot:
+            fig, ax = plt.subplots(1, 1, dpi=150)
+
+
+            img = get_subject_image(subject)
+            ax.imshow(img)
+
+            x_s = [*point_data_T1['x_start'], *point_data_T5['x_start']]
+            y_s = [*point_data_T1['y_start'], *point_data_T5['y_start']]
+
+            for point in zip(x_s, y_s):
+                ax.plot(*point, 'k.', markersize=1.5)
+            for point in unique_starts:
+                ax.plot(*point, 'b.')
+            for point in unique_ends:
+                ax.plot(*point, 'y.')
+            for jet in jets:
+                jet.plot(ax)
+
+            ax.axis('off')
+            plt.show()
+
+        return jets
+
+class Jet:
+    '''
+        Oject to hold the data associated with a single jet.
+        Contains the start/end positions and associated extracts,
+        and the box (as a `shapely.Polygon` object) and corresponding
+        extracts
+    '''
+    def __init__(self, subject, start, end, box, cluster_values):
+        self.subject = subject
+        self.start   = start
+        self.end     = end
+        self.box     = box
+
+        self.cluster_values = cluster_values
+        
+        self.box_extracts   = {'x': [], 'y': [], 'w': [], 'h': [], 'a': []}
+        self.start_extracts = {'x': [], 'y': []}
+        self.end_extracts   = {'x': [], 'y': []}
+
+        self.autorotate()
+
+    def get_extract_starts(self):
+        '''
+            Get the extract coordinates associated with the 
+            starting base points
+        '''
+        x_s = self.start_extracts['x']
+        y_s = self.start_extracts['y']
+
+        return np.transpose([x_s, y_s])
+
+    def get_extract_ends(self):
+        '''
+            Get the extract coordinates associated with the 
+            final base points
+        '''
+        x_e = self.end_extracts['x']
+        y_e = self.end_extracts['y']
+
+        return np.transpose([x_e, y_e])
+
+    def get_extract_boxes(self):
+        '''
+            Get the extract shapely Polygons corresponding
+            to the boxes
+        '''
+        boxes = []
+        for i in range(len(self.box_extracts['x'])):
+            x = self.box_extracts['x'][i]
+            y = self.box_extracts['y'][i]
+            w = self.box_extracts['w'][i]
+            h = self.box_extracts['h'][i]
+            a = np.radians(self.box_extracts['a'][i])
+
+            # get the box
+            boxes.append(Polygon(get_box_edges(x, y, w, h, a)[:4]))
+
+        return boxes
+
+    def plot(self, ax):
+        '''
+            Plot the the data for this jet object. Plots the 
+            start and end clustered points, and the associated 
+            extracts. Also plots the clustered and extracted 
+            box. Also plots a vector from the base to the top of the box
+
+            Input
+            -----
+            ax : `matplotlib.Axes()`
+                axis object to plot onto. The general use case for this
+                function is to plot onto an existing axis which already has
+                the subjet image and potentially other jet plots
+
+            Returns
+            -------
+            ims : list
+                list of `matplotlib.Artist` objects that was created for this plot
+        '''
+        boxplot,   = ax.plot(*self.box.exterior.xy, 'b-', linewidth=0.8)
+        startplot, = ax.plot(*self.start, 'bx', markersize=1.5)
+        endplot,   = ax.plot(*self.end, 'yx', markersize=1.5)
+
+        start_ext = self.get_extract_starts()
+        end_ext   = self.get_extract_ends()
+
+        # plot the extracts (start, end, box)
+        startextplot, = ax.plot(start_ext[:,0], start_ext[:,1], 'k.', markersize=1.)
+        endextplot,   = ax.plot(end_ext[:,0], end_ext[:,1], 'k.', markersize=1.)
+        boxextplots = []
+        for box in self.get_extract_boxes():
+            iou = box.intersection(self.box).area/box.union(self.box).area
+            boxextplots.append(ax.plot(*box.exterior.xy, 'k-', linewidth=0.5, alpha=0.65*iou+0.05)[0])
+
+        # find the center of the box, so we can draw a vector through it
+        center   = np.mean(np.asarray(self.box.exterior.xy)[:,:4], axis=1)
+
+        # create the rotation matrix to rotate a vector from solar north to
+        # the direction of the jet
+        rotation = np.asarray([[np.cos(self.angle), -np.sin(self.angle)],
+                               [np.sin(self.angle), np.cos(self.angle)]])
+
+        # create a vector by choosing the top of the jet and base of the jet
+        # as the two points
+        point0 = center + np.matmul(rotation, np.asarray([0,  self.height/2.]))
+        point1 = center + np.matmul(rotation, np.asarray([0, -self.height/2.]))
+        vec    = point1 - point0
+
+        base_points, height_points = self.get_width_height_pairs()
+
+        arrowplot = ax.arrow(*point0, vec[0], vec[1], color='white', width=2, length_includes_head=True, head_width=10)
+
+        if hasattr(self, 'sigma'):
+            # calculate the bounding box for the cluster confidence
+            plus_sigma, minus_sigma = sigma_shape(self.cluster_values, self.sigma)
+            
+            # get the boxes edges
+            plus_sigma_box  = get_box_edges(*plus_sigma)
+            minus_sigma_box = get_box_edges(*minus_sigma)
+
+            # create a fill between the - and + sigma boxes
+            x_p = plus_sigma_box[:,0]
+            y_p = plus_sigma_box[:,1]
+            x_m = minus_sigma_box[:,0]
+            y_m = minus_sigma_box[:,1]
+            ax.fill(np.append(x_p, x_m[::-1]), np.append(y_p, y_m[::-1]), color='white', alpha=0.3)
+
+        return [boxplot, startplot, endplot, startextplot, endextplot, *boxextplots, arrowplot]
+
+    def autorotate(self):
+        '''
+            Find the rotation of the jet wrt to solar north and 
+            find the base width and height of the box
+        '''
+        box_points   = np.transpose(self.box.exterior.xy)[:4,:]
+
+        # find the distance between each point and the starting base
+        dists        = [np.linalg.norm((point - self.start)) for point in box_points]
+        sorted_dists = np.argsort(dists)
+
+        # the base points are the two points closest to the start
+        base_points = np.array([box_points[sorted_dists[0]], box_points[sorted_dists[1]]])
+
+        # the height points are the next two
+        rolled_points = np.delete(np.roll(box_points, -sorted_dists[0],
+                                          axis=0), 0, axis=0)
+
+        if np.linalg.norm(rolled_points[0,:]-base_points[1,:])==0:
+            height_points = rolled_points[:2]
+        else:
+            height_points = rolled_points[::-1][:2]
+
+        base_points, height_points = self.get_width_height_pairs()
+        ax.plot(base_points[:,0], base_points[:,1], 'y-')
+        ax.plot(height_points[:,0], height_points[:,1], '-', color='grey')
+
+
+    def get_width_height_pairs(self):
+        box_points   = np.transpose(self.box.exterior.xy)[:4,:]
+        dists        = [np.linalg.norm((point - self.start)) for point in box_points]
+        sorted_dists = np.argsort(dists)
+
+        # the base points are the two points closest to the start
+        base_points = np.array([box_points[sorted_dists[0]], box_points[sorted_dists[1]]])
+
+        # the height points are the next two
+        rolled_points = np.delete(np.roll(box_points, -sorted_dists[0],
+                                          axis=0), 0, axis=0)
+
+        # we want to make sure that the order of the points 
+        # is in such a way that the point closest to the base
+        # comes first -- this will ensure that the next point is
+        # along the height line
+        if np.linalg.norm(rolled_points[0,:]-base_points[1,:])==0:
+            height_points = rolled_points[:2]
+        else:
+            height_points = rolled_points[::-1][:2]
+
+        self.base_points   = base_points
+        self.height_points = height_points
+
+        # also figure out the angle and additional size metadata
+        # the angle is the angle between the height points and the base
+        dh = self.height_points[1] - self.height_points[0]
+        self.angle = np.arctan2(dh[0], -dh[1])
+
+        self.height = np.linalg.norm(dh)
+        self.width  = np.linalg.norm(self.base_points[1] - self.base_points[0])
+
+    def get_width_height_pairs(self):
+        '''
+            Returns the base points and the height line segment
+            points 
+
+            Returns
+            -------
+            base_points : `numpy.ndarray`
+                the pair of points that correspond to the base of the jet
+            height_points : `numpy.ndarray`
+                the pair of points that correspond to the height of the jet
+        '''
+
+        return self.base_points, self.height_points
