@@ -1,7 +1,5 @@
 import os 
-#os.chdir('JetOrNot/')
-#print(os.getcwd())
-from aggregation import QuestionResult 
+from JetOrNot.aggregation import QuestionResult 
 from astropy.io import ascii
 import numpy as np
 
