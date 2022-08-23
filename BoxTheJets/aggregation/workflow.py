@@ -4,11 +4,11 @@ from astropy.io import ascii
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import ast
-import json
 from panoptes_client import Panoptes, Subject, Workflow
 from skimage import io, transform
 import getpass
 from shapely.geometry import Polygon, Point
+
 
 def connect_panoptes():
     '''
@@ -139,6 +139,7 @@ def sigma_shape(params, sigma):
     plus_sigma = scale_shape(params, 1 / gamma)
     minus_sigma = scale_shape(params, gamma)
     return plus_sigma, minus_sigma
+
 
 class Aggregator:
     '''
@@ -1346,11 +1347,11 @@ class Aggregator:
             y_s = [*point_data_T1['y_start'], *point_data_T5['y_start']]
 
             for point in zip(x_s, y_s):
-                ax.plot(*point, 'k.', markersize=1.5)
+                ax.plot(*point, 'k.', markersize=1.5,zorder=9)
             for point in unique_starts:
-                ax.plot(*point, 'b.')
+                ax.plot(*point, 'b.',zorder=9)
             for point in unique_ends:
-                ax.plot(*point, 'y.')
+                ax.plot(*point, 'y.',zorder=9)
             for jet in jets:
                 jet.plot(ax)
 
@@ -1437,9 +1438,9 @@ class Jet:
             ims : list
                 list of `matplotlib.Artist` objects that was created for this plot
         '''
-        boxplot,   = ax.plot(*self.box.exterior.xy, 'b-', linewidth=0.8)
-        startplot, = ax.plot(*self.start, 'bx', markersize=1.5)
-        endplot,   = ax.plot(*self.end, 'yx', markersize=1.5)
+        boxplot,   = ax.plot(*self.box.exterior.xy, 'b-', linewidth=0.8, zorder=10) 
+        startplot, = ax.plot(*self.start, color='limegreen',marker='x', markersize=2, zorder=10)
+        endplot,   = ax.plot(*self.end, 'rx', markersize=2, zorder=10)
 
         start_ext = self.get_extract_starts()
         end_ext   = self.get_extract_ends()
@@ -1455,7 +1456,7 @@ class Jet:
         # find the center of the box, so we can draw a vector through it
         center   = np.mean(np.asarray(self.box.exterior.xy)[:,:4], axis=1)
 
-        # create the rotation matrix to rotate a vector from solar north to
+        # create the rotation matrix to rotate a vector from solar north tos
         # the direction of the jet
         rotation = np.asarray([[np.cos(self.angle), -np.sin(self.angle)],
                                [np.sin(self.angle), np.cos(self.angle)]])
@@ -1495,28 +1496,6 @@ class Jet:
         box_points   = np.transpose(self.box.exterior.xy)[:4,:]
 
         # find the distance between each point and the starting base
-        dists        = [np.linalg.norm((point - self.start)) for point in box_points]
-        sorted_dists = np.argsort(dists)
-
-        # the base points are the two points closest to the start
-        base_points = np.array([box_points[sorted_dists[0]], box_points[sorted_dists[1]]])
-
-        # the height points are the next two
-        rolled_points = np.delete(np.roll(box_points, -sorted_dists[0],
-                                          axis=0), 0, axis=0)
-
-        if np.linalg.norm(rolled_points[0,:]-base_points[1,:])==0:
-            height_points = rolled_points[:2]
-        else:
-            height_points = rolled_points[::-1][:2]
-
-        base_points, height_points = self.get_width_height_pairs()
-        ax.plot(base_points[:,0], base_points[:,1], 'y-')
-        ax.plot(height_points[:,0], height_points[:,1], '-', color='grey')
-
-
-    def get_width_height_pairs(self):
-        box_points   = np.transpose(self.box.exterior.xy)[:4,:]
         dists        = [np.linalg.norm((point - self.start)) for point in box_points]
         sorted_dists = np.argsort(dists)
 
