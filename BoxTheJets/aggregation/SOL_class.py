@@ -16,25 +16,133 @@ import os
 import datetime
 from matplotlib.dates import DateFormatter
 import matplotlib.animation as animation
-from .workflow import Aggregator, get_subject_image
+from .workflow import Aggregator, Jet
+from .workflow import get_subject_image, get_box_edges
 from sklearn.cluster import OPTICS
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, fcluster
+from shapely.geometry import Polygon, Point
 import hdbscan
+import json
 import tqdm
 
-def get_h_w_clusterbox(subject,aggregator, task='T1'):
+def remove_last_char(string):
+    final=string[0:len(string)-1]
+    return final
+
+def json_export_list(clusters,output):
     '''
-    Get the dimensions of the cluster box for a given subject
-    This function will be replaced when the find_unique_jets function is ready
+        export the list of JetCluster objects to the output.json file. 
+        Inputs
+            ------
+            clusters : list
+                list with JetCluster objects to be exported
+            output : str
+                name of the exported json file
     '''
-    box_datai = aggregator.box_data[:][(aggregator.box_data['subject_id']==subject)&(aggregator.box_data['task']==task)]
-    cw_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_width'][0])
-    ch_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_height'][0])
-    ca_i = ast.literal_eval(box_datai[f'data.frame0.{task}_tool2_clusters_angle'][0])
-    for i in [x for x in range(len(ca_i)) if ca_i[x] > 200]: #if angle is larger than 200 reverse width and height
-        ch_i[i], cw_i[i] = cw_i[i],ch_i[i]
-    return cw_i,ch_i
+    string='['
+    for i in range(len(clusters)):
+        string+='{ "ID": "'+str(clusters[i].ID)+'", "SOL": "'+str(clusters[i].SOL)+'", "obs_time":"'+str(clusters[i].obs_time)
+        string+='", "Duration":'+str(clusters[i].Duration)  
+        string+=', "Bx":'+str(clusters[i].Bx) + ', "std_Bx":'+str(clusters[i].std_Bx)
+        string+= ', "By":'+str(clusters[i].By) + ', "std_By":'+str(clusters[i].std_By)
+        string+= ', "Lat":'+str(clusters[i].Lat) + ', "Lon":'+str(clusters[i].Lon)
+        if np.isnan(clusters[i].std_maxH[0]):
+            std_H=''
+        else:
+            std_H=',"std_maxH":{ "upper":'+str(clusters[i].std_maxH[0])+',"lower":'+str(clusters[i].std_maxH[1])+'}'
+        string+=', "Max_Height":'+str(clusters[i].Max_Height) +std_H
+        string+=', "Width":'+str(clusters[i].Width) + ', "std_W":'+str(clusters[i].std_W)
+        if np.isnan(clusters[i].Velocity):
+            Vel=''
+        else:
+            Vel=', "Velocity":'+str(clusters[i].Velocity)
+        string+= Vel + ', "sigma":'+str(clusters[i].sigma)     
+        jetstring=', "Jets": ['
+        for j in clusters[i].jets:
+            jetstring+='{ "subject": '+str(j.subject)
+            jetstring+=', "sigma": '+str(j.sigma)
+            jetstring+=', "time": "'+str(j.time)
+            jetstring+='", "start": { "x":'+str(j.start[0]) +',"y":'+str(j.start[1])+'}'
+            jetstring+=', "end": { "x":'+str(j.end[0]) +',"y":'+str(j.end[1])+'}'
+            jetstring+=', "cluster_values": { "x":'+str(j.cluster_values[0]) +',"y":'+str(j.cluster_values[1])+',"w":'+str(j.cluster_values[2])+',"h":'+str(j.cluster_values[3])+',"a":'+str(j.cluster_values[4])+'}'
+            jetstring+= '},'
+        subjson=remove_last_char(jetstring) 
+        string+=subjson+']},'
+    Json=remove_last_char(string)+']'
+    
+    text_file = open(f"{str(output)}.json", "w")
+
+    text_file.write(Json)
+
+    text_file.close()
+    
+    print(f'The {len(clusters)} JetCluster objects are exported to {output}.json.')
+    
+    return 
+
+
+def json_import_list(input_file):
+        '''
+        import a list of JetCluster objects from the input_file file. 
+        Inputs
+            ------
+            input_file : string
+                path or filename to the json file with JetCluster objects
+        Outputs
+            ------
+            clusters : list
+                list of JetCluster objects 
+    '''
+    file = open(input_file)
+    lists=json.load(file)
+    file.close()
+    clusters=np.array([])
+    for k in range(len(lists)):
+        json_obj=lists[k]
+        jets_subjson=json_obj['Jets']
+        jets_list=np.array([])
+        for J in jets_subjson:
+            subject=J['subject']
+            best_start=np.array([J['start'][i] for i in ['x','y']])
+            best_end=np.array([J['end'][i] for i in ['x','y']])
+            jet_params=np.array([J['cluster_values'][i] for i in ['x','y','w','h','a']])
+            jeti=Polygon(get_box_edges(*jet_params))
+            jet_obj = Jet(subject, best_start, best_end, jeti, jet_params)
+            jet_obj.time = J['time'] 
+            jet_obj.sigma = J['sigma'] 
+            jets_list=np.append(jets_list,jet_obj)
+        cluster_obj = JetCluster(jets_list)
+        cluster_obj.ID= json_obj['ID']
+        cluster_obj.SOL= json_obj['SOL']
+        cluster_obj.Duration= json_obj['Duration']
+        cluster_obj.obs_time= json_obj['obs_time']
+        cluster_obj.Bx= json_obj['Bx']
+        cluster_obj.std_Bx= json_obj['std_Bx']
+        cluster_obj.By= json_obj['By']
+        cluster_obj.std_By= json_obj['std_By']
+        cluster_obj.Lat= json_obj['Lat']
+        cluster_obj.Lon= json_obj['Lon']
+        cluster_obj.Max_Height= json_obj['Max_Height']
+        try:
+            cluster_obj.std_maxH= np.array([json_obj['std_maxH'][i] for i in ['upper','lower']])
+        except:
+            cluster_obj.std_maxH= np.array([np.nan,np.nan])
+
+        cluster_obj.Width= json_obj['Width'] 
+        cluster_obj.std_W= json_obj['std_W']
+        cluster_obj.sigma= json_obj['sigma']
+        try:
+            cluster_obj.Velocity= json_obj['Velocity']
+        except:
+            cluster_obj.Velocity= np.nan  
+
+        clusters=np.append(clusters,cluster_obj)
+    
+    print(f'The {len(clusters)} JetCluster objects are imported from {input_file}.')
+    
+    return clusters
+
 
 
 class SOL:
@@ -65,7 +173,13 @@ class SOL:
             the task key (from Zooniverse)
             default Tc (combined results of task T0 and T3)
         '''
-        fig = Image(filename=('SOL/Agreement_SOL_'+task+'/'+SOL_event.replace(':','-')+'.png'))
+        if task=='T0':
+            fig = Image(filename=('JetOrNot/SOL/Agreement_SOL_'+task+'/'+SOL_event.replace(':','-')+'.png'))
+        elif task=='T3':
+            fig = Image(filename=('BoxTheJets/SOL/Agreement_SOL_'+task+'/'+SOL_event.replace(':','-')+'.png'))
+        else:
+            fig = Image(filename=('SOL/Agreement_SOL_'+task+'/'+SOL_event.replace(':','-')+'.png'))
+        
         display(fig)
         
     def get_subjects(self, SOL_event):
@@ -127,6 +241,15 @@ class SOL:
         end_time=np.array([parse(E[t]) for t in range(len(E))],dtype='datetime64')    
         return start_time, end_time
     
+    def get_filenames0(self, SOL_event):
+        '''
+        Get the filenames of the first image for each subjects. 
+        filenames0: name of first image in the subject
+        '''
+        i=np.argwhere(self.SOL_small==SOL_event)[0][0]
+        files=np.array(self.filenames0[i].split(' '))
+        return files
+    
     def get_notes_time(self, SOL_event):
         '''
         Get the notes of jet clusters in given SOL event
@@ -141,91 +264,19 @@ class SOL:
         N= [a + 'T'+ b for a, b in zip(self.notes[i].split(' ')[2::3],self.notes[i].split(' ')[3::3])]
         notes_time=np.array([parse(N[t]) for t in range(len(N))],dtype='datetime64')
         return notes_time, flag
-    
-    def get_filenames0(self, SOL_event):
-        '''
-        Get the filenames of the first image for each subjects. 
-        filenames0: name of first image in the subject
-        '''
-        i=np.argwhere(self.SOL_small==SOL_event)[0][0]
-        files=np.array(self.filenames0[i].split(' '))
-        return files
-    
-    def get_box_dim(self,SOL_event, p=True):  
-        '''
-        Get the height and width arrays of the subjects inside a given SOL event
-        '''
-        subjects=self.get_subjects(SOL_event)
-        obs_time=self.get_obs_time(SOL_event)
-        W=np.array([])
-        H=np.array([])
-    
-        for subject in subjects:
-            ## check to make sure that these subjects had classification
-            subject_rows = self.aggregator.points_data[:][self.aggregator.points_data['subject_id']==subject]
-            nsubjects = len(subject_rows['data.frame0.T1_tool0_points_x'])
-            if nsubjects > 0:
-                try:
-                    width,height=get_h_w_clusterbox(subject,self.aggregator, task='T1') #Function will be replaced by find_unique_jets 
-                    W=np.append(W,width[0]) #Only one box is chosen if more clusters are present
-                    H=np.append(H,height[0])
-                    #print(width,height)
-                    
-                except:
-                    if p==True:
-                        print('No box size available')
-                    W=np.append(W,0)
-                    H=np.append(H,0)
-    
-            else:
-                if p==True:
-                    print(f"{subject} has no classification data!")
-                W=np.append(W,0)
-                H=np.append(H,0)
-                
-        return H,W    
-
-    def box_height_width_plot(self,SOL_event, height,width,save=False):
-        '''
-        Plot the heigth and width evolution over time in a SOL event
-        
-        height: np.array with height box per subject
-        width: np.array with width box per subject
-        '''
-        obs_time=self.get_obs_time(SOL_event)
-        fig, (ax1, ax2) = plt.subplots(2,dpi=150,figsize=(4.8,4),sharex=True)
-        x1, y1 = zip(*sorted(zip(obs_time, height)))
-        x2, y2 = zip(*sorted(zip(obs_time, width)))
-        ax1.plot(x1,y1,color='red')
-        ax2.plot(x2,y2,color='red')
-        date_form = DateFormatter("%H:%M")
-        ax2.xaxis.set_major_formatter(date_form)
-        plt.xticks(rotation=45)
-        ax1.set_ylabel('Height (pix)')
-        ax1.set_title(SOL_event)
-        ax2.set_ylabel('Width (pix)')
-        ax1.set_ylim(0,np.max(np.maximum(height,width))+30)
-        ax2.set_ylim(0,np.max(np.maximum(height,width))+30)
-        if save==True:
-            path = 'SOL/SOL_Box_size/'
-            #check if folder for plots exists
-            isExist = os.path.exists(path)
-            if not isExist: 
-              os.makedirs(path)
-              print("SOL_Box directory is created")
-        
-            plt.savefig('SOL/SOL_Box_size'+'/'+SOL_event.replace(':','-')+'.png')
-        
-        plt.show()
         
         
-    def event_box_plot(self, SOL_event):
-        fig = Image(filename=('SOL/SOL_Box_size/'+SOL_event.replace(':','-')+'.png'))
+    def event_box_plot(self, SOL_event): 
+        '''
+        Show the evolution of the box sizes of the different jets in one SOL event
+        '''
+        fig = Image(filename=('BoxTheJets/SOL/SOL_Box_size/'+SOL_event.replace(':','-')+'.png'))
+        
         display(fig)
             
             
             
-    def filter_jet_clusters(self, SOL_event, eps=2., time_eps=2.):
+    def filter_jet_clusters(self, SOL_event, eps=1., time_eps=2.):
         # first, get a list of subjects for
         # this event
         subjects  = self.get_subjects(SOL_event)
@@ -399,6 +450,9 @@ class SOL:
 class JetCluster:
     def __init__(self, jets):
         self.jets  = jets
+        
+    def adding_new_attr(self, name_attr,value_attr):
+        setattr(self, name_attr, value_attr)
 
     def create_gif(self, output):
         '''
@@ -434,4 +488,14 @@ class JetCluster:
         # save the animation as a gif
         ani = animation.ArtistAnimation(fig, ims)
         ani.save(output, writer='imagemagick')
-
+        
+    def json_export(self,output):
+        '''
+            export one single jet cluster to output.json file 
+            Inputs
+            ------
+            output : str
+                name of the exported json file
+        '''
+        json_export_list([self],output)
+        
