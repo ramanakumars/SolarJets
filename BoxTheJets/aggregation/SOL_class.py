@@ -57,7 +57,12 @@ def json_export_list(clusters,output):
             Vel=''
         else:
             Vel=', "Velocity":'+str(clusters[i].Velocity)
-        string+= Vel + ', "sigma":'+str(clusters[i].sigma)     
+        string+= Vel + ', "sigma":'+str(clusters[i].sigma) 
+        try:
+            string+=', "Flag":'+str(clusters[i].flag)
+        except:
+            pass
+       
         jetstring=', "Jets": ['
         for j in clusters[i].jets:
             jetstring+='{ "subject": '+str(j.subject)
@@ -135,8 +140,13 @@ def json_import_list(input_file):
         try:
             cluster_obj.Velocity= json_obj['Velocity']
         except:
-            cluster_obj.Velocity= np.nan  
-
+            cluster_obj.Velocity= np.nan 
+            
+        try: 
+            cluster_obj.Flag= json_obj['Flag']
+        except:
+            pass
+        
         clusters=np.append(clusters,cluster_obj)
     
     print(f'The {len(clusters)} JetCluster objects are imported from {input_file}.')
