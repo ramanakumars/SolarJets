@@ -83,7 +83,7 @@ def json_export_list(clusters,output):
 
 
 def json_import_list(input_file):
-        '''
+    '''
         import a list of JetCluster objects from the input_file file. 
         Inputs
             ------
