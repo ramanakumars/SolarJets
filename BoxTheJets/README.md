@@ -20,7 +20,9 @@ reducer_config:
     shape_reducer_hdbscan:
         shape: rotateRectangle
         min_cluster_size: 2
+        min_samples: 2
         allow_single_cluster: True
+        metric_type: IoU
 ```
 
 
@@ -29,6 +31,7 @@ reducer_config:
 reducer_config:
     point_reducer_hdbscan: 
         min_cluster_size: 2
+        min_samples: 2
         allow_single_cluster: True
 ```
 
