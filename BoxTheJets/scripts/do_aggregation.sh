@@ -23,7 +23,8 @@ mkdir -p {extracts,reductions}/
 
 # first get the extracts
 cd extracts/;
-panoptes_aggregation extract ../box-the-jets-classifications.csv ../configs/Extractor_config_workflow_19650_V4.52.yaml -o box_the_jets
+panoptes_aggregation extract ../box-the-jets-classifications.csv\
+	../configs/Extractor_config_workflow_19650_V4.52.yaml -o box_the_jets
 
 # squash the frames
 cd ..;
@@ -43,7 +44,7 @@ panoptes_aggregation reduce ../extracts/point_extractor_by_frame_box_the_jets_sc
 
 # Using the new jaccard metric for clustering
 panoptes_aggregation reduce ../extracts/shape_extractor_rotateRectangle_box_the_jets_scaled_squashed.csv \
-    ../configs/Reducer_config_workflow_19650_V4.52_shape_extractor_rotateRectangle_IoU.yaml \
+    ../configs/Reducer_config_workflow_19650_V4.52_shape_extractor_rotateRectangle.yaml \
 	-o box_the_jets -c ${NUM_PROCS}
 
 panoptes_aggregation reduce ../extracts/question_extractor_box_the_jets.csv\
