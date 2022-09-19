@@ -26,9 +26,15 @@ import hdbscan
 import json
 import tqdm
 
-def remove_last_char(string):
-    final=string[0:len(string)-1]
-    return final
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NpEncoder, self).default(obj)
 
 def json_export_list(clusters,output):
     '''
@@ -40,48 +46,54 @@ def json_export_list(clusters,output):
             output : str
                 name of the exported json file
     '''
-    string='['
-    for i in range(len(clusters)):
-        string+='{ "ID": "'+str(clusters[i].ID)+'", "SOL": "'+str(clusters[i].SOL)+'", "obs_time":"'+str(clusters[i].obs_time)
-        string+='", "Duration":'+str(clusters[i].Duration)  
-        string+=', "Bx":'+str(clusters[i].Bx) + ', "std_Bx":'+str(clusters[i].std_Bx)
-        string+= ', "By":'+str(clusters[i].By) + ', "std_By":'+str(clusters[i].std_By)
-        string+= ', "Lat":'+str(clusters[i].Lat) + ', "Lon":'+str(clusters[i].Lon)
-        if np.isnan(clusters[i].std_maxH[0]):
-            std_H=''
-        else:
-            std_H=',"std_maxH":{ "upper":'+str(clusters[i].std_maxH[0])+',"lower":'+str(clusters[i].std_maxH[1])+'}'
-        string+=', "Max_Height":'+str(clusters[i].Max_Height) +std_H
-        string+=', "Width":'+str(clusters[i].Width) + ', "std_W":'+str(clusters[i].std_W)
-        if np.isnan(clusters[i].Velocity):
-            Vel=''
-        else:
-            Vel=', "Velocity":'+str(clusters[i].Velocity)
-        string+= Vel + ', "sigma":'+str(clusters[i].sigma) 
-        try:
-            string+=', "Flag":'+str(clusters[i].flag)
-        except:
-            pass
-       
-        jetstring=', "Jets": ['
-        for j in clusters[i].jets:
-            jetstring+='{ "subject": '+str(j.subject)
-            jetstring+=', "sigma": '+str(j.sigma)
-            jetstring+=', "time": "'+str(j.time)
-            jetstring+='", "start": { "x":'+str(j.start[0]) +',"y":'+str(j.start[1])+'}'
-            jetstring+=', "end": { "x":'+str(j.end[0]) +',"y":'+str(j.end[1])+'}'
-            jetstring+=', "cluster_values": { "x":'+str(j.cluster_values[0]) +',"y":'+str(j.cluster_values[1])+',"w":'+str(j.cluster_values[2])+',"h":'+str(j.cluster_values[3])+',"a":'+str(j.cluster_values[4])+'}'
-            jetstring+= '},'
-        subjson=remove_last_char(jetstring) 
-        string+=subjson+']},'
-    Json=remove_last_char(string)+']'
     
-    text_file = open(f"{str(output)}.json", "w")
+    outdata = []
+    for cluster in clusters:
+        ci = {}
+        
+        ci['id'] = cluster.ID
+        ci['SOL'] = cluster.SOL
+        ci['obs_time'] = str(cluster.obs_time)
+        ci['duration'] = cluster.Duration
+        
+        ci['Bx'] = {'mean': cluster.Bx, 'std': cluster.std_Bx}
+        ci['By'] = {'mean': cluster.By, 'std': cluster.std_By}
+        
+        ci['max_height'] = {'mean': cluster.Max_Height,
+                            'std_upper': cluster.std_maxH[0],
+                            'std_lower': cluster.std_maxH[1]}
+        
+        ci['width'] = {'mean': cluster.Width, 'std': cluster.std_W}
+        ci['height'] = {'mean': cluster.Height, 'std': cluster.std_H}
+        
+        ci['velocity'] = cluster.Velocity
+        
+        ci['sigma'] = cluster.sigma
+        ci['flag'] = cluster.flag
+        
+        ci['jets'] = []
+        for jet in cluster.jets:
+            ji = {}
 
-    text_file.write(Json)
+            ji['subject'] = jet.subject
+            ji['sigma'] = jet.sigma
+            ji['time'] = str(jet.time)
 
-    text_file.close()
-    
+            # these are in the frame of the image not in solar coords
+            ji['start'] = {'x': jet.start[0], 'y': jet.start[1]}
+            ji['end'] = {'x': jet.end[0], 'y': jet.end[1]}
+            ji['cluster_values'] = {'x': jet.cluster_values[0],
+                                    'y': jet.cluster_values[1],
+                                    'w': jet.cluster_values[2],
+                                    'h': jet.cluster_values[3],
+                                    'a': jet.cluster_values[4]}
+
+            ci['jets'].append(ji)
+        outdata.append(ci)
+
+    with open(f"{str(output)}.json", "w") as outfile:
+        json.dump(outdata, outfile, cls=NpEncoder)
+
     print(f'The {len(clusters)} JetCluster objects are exported to {output}.json.')
     
     return 
