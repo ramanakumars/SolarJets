@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Mar 16 11:01:58 2022
-
-@author: pjol
-"""
-
 import matplotlib.pyplot as plt
 import numpy as np
 from IPython.display import Image, display
@@ -204,12 +196,15 @@ class SOL:
     
     def event_bar_plot(self, SOL_event, task='Tc'):
         '''   
-        Show the bar plot, indicating locations of jets for a given SOL event
-        Produced by SOL_analytics.ipynb
-        
-        task : str 
-            the task key (from Zooniverse)
-            default Tc (combined results of task T0 and T3)
+            Show the bar plot, indicating locations of jets for a given SOL event
+            Produced by SOL_analytics.ipynb
+            Inputs
+            ------
+                SOL_event: str
+                    name of the SOL event used in Zooniverse 
+                task : str 
+                    the task key (from Zooniverse)
+                    default Tc (combined results of task T0 and T3)
         '''
         if task=='T0':
             fig = Image(filename=('JetOrNot/SOL/Agreement_SOL_'+task+'/'+SOL_event.replace(':','-')+'.png'))
@@ -223,9 +218,15 @@ class SOL:
     def get_subjects(self, SOL_event):
         '''
         Get the subjects that correspond to a given SOL event
-        
-        SOL_small: list of the SOL events used in Zooniverse
-        SOL_subjects: list of subjects corresponding to a given SOL event
+        Inputs
+        ------
+            SOL_event: str
+                name of the SOL event used in Zooniverse 
+            
+        Outputs
+        -------
+            subjects : np.array
+                list of the subjects in the SOL event
         
         Read in using 
         SOL_small,SOL_subjects,times,Num,start,end,notes=np.loadtxt('path/SOL/SOL_{}_stats.csv'.format('Tc'),delimiter=',',unpack=True,dtype=str)
@@ -239,8 +240,15 @@ class SOL:
     def get_obs_time(self, SOL_event):
         '''
         Get the observation times of a given SOL event
-        
-        times: start observation times for subjects in a SOL event
+        Inputs
+        ------
+            SOL_event: str
+                name of the SOL event used in Zooniverse 
+            
+        Outputs
+        -------
+            obs_time : starting time of the subjects of the SOL event 
+            
         saved in SOL_Tc_stats.csv
         '''
         i=np.argwhere(self.SOL_small==SOL_event)[0][0]
@@ -251,6 +259,10 @@ class SOL:
     def plot_subjects(self, SOL_event):  
         '''
         Plot all the subjects with aggregation data of a given SOL event
+        Inputs
+        ------
+            SOL_event: str
+                name of the SOL event used in Zooniverse 
         '''
         subjects=self.get_subjects(SOL_event)
         obs_time=self.get_obs_time(SOL_event)
@@ -266,10 +278,18 @@ class SOL:
         
     def get_start_end_time(self, SOL_event):
         '''
-        Get the start and end times of jet clusters in given SOL event
+        Get the start and end times of subjects in given SOL event
         
-        start: start time subject with jet
-        end: end time subject with jet
+        Inputs
+        ------
+            SOL_event : str
+                name of the SOL event used in Zooniverse 
+        Output
+        ------
+            start_time : np.array(dtype=datetime64)
+                start times of the subjects 
+            end_time : np.array(dtype=datetime64)
+                end time of the subjects
         saved in SOL_Tc_stats.csv
         '''
         i=np.argwhere(self.SOL_small==SOL_event)[0][0]
@@ -282,7 +302,14 @@ class SOL:
     def get_filenames0(self, SOL_event):
         '''
         Get the filenames of the first image for each subjects. 
-        filenames0: name of first image in the subject
+        Inputs
+        ------
+            SOL_event : str
+                name of the SOL event used in Zooniverse 
+        Output
+        ------        
+            files : np.array
+                get an array of the filenames of the subject in the SOL event
         '''
         i=np.argwhere(self.SOL_small==SOL_event)[0][0]
         files=np.array(self.filenames0[i].split(' '))
@@ -290,12 +317,21 @@ class SOL:
     
     def get_notes_time(self, SOL_event):
         '''
-        Get the notes of jet clusters in given SOL event
+        Get the notes of jet event (sequential jet subjects) in given SOL event
         
-        notes: flags given to subjects 
-            100 means an event of less than 6 minutes
-            010 means an event where 2 event are closely after eachother
-        saved in SOL_Tc_stats.csv
+        Inputs
+        ------
+            SOL_event : str
+                name of the SOL event used in Zooniverse 
+        
+        Outputs
+        -------
+        
+            notes_time: str
+                flags given to subjects, revised after jet clusters are formed
+                100 means an event of less than 6 minutes
+                010 means an event where 2 event are closely after eachother
+                saved in SOL_Tc_stats.csv
         '''
         i=np.argwhere(self.SOL_small==SOL_event)[0][0]
         flag=np.array(self.notes[i].split(' ')[1::3])
@@ -307,6 +343,10 @@ class SOL:
     def event_box_plot(self, SOL_event): 
         '''
         Show the evolution of the box sizes of the different jets in one SOL event
+        Inputs
+        ------
+            SOL_event : str
+                name of the SOL event used in Zooniverse 
         '''
         fig = Image(filename=('BoxTheJets/SOL/SOL_Box_size/'+SOL_event.replace(':','-')+'.png'))
         
@@ -315,6 +355,19 @@ class SOL:
             
             
     def filter_jet_clusters(self, SOL_event, eps=1., time_eps=2.):
+        '''
+        For the inputted SOL event search for jet objects that are within the eps in space and the time_eps in time from eachother.
+        Cluster those together and make JetCluster objects.
+        Inputs
+        ------
+            SOL_event : str
+                name of the SOL event used in Zooniverse 
+            eps : float
+                space parameter in which the jets should lie
+            time_eps : float
+                time parameter in which the jets should lie
+        '''
+        
         # first, get a list of subjects for
         # this event
         subjects  = self.get_subjects(SOL_event)
@@ -487,15 +540,31 @@ class SOL:
 
 class JetCluster:
     def __init__(self, jets):
+        '''
+            Initiate the JetCluster with a list of jet objects that are contained by that cluster.
+        '''
         self.jets  = jets
         
     def adding_new_attr(self, name_attr,value_attr):
+        '''
+            Add new attributes to the JetCluster
+        Inputs
+        ------
+            name_attr: str
+                name of the to be added property
+            value_attr: any
+                value of the to be added property
+        '''
         setattr(self, name_attr, value_attr)
 
     def create_gif(self, output):
         '''
             Create a gif of the jet objects showing the 
             image and the plots from the `Jet.plot()` method
+        Inputs
+        ------
+            output: str
+                name of the exported gif 
         '''
         fig, ax = plt.subplots(1,1, dpi=250)
         

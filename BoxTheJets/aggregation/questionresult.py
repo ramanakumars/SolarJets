@@ -25,6 +25,16 @@ class QuestionResult:
     def Agr_mask(self):
         '''
         Find the agreement between the volunteers for the Jet or Not question
+        Output
+        ------
+            agreement : np.array
+                agreement between the volunteers on the subjects 
+            jet_mask : np.array
+                mask for the subject that most likely contain a jet
+            non_jet_mask : np.array
+                mask for the subject that most likely do not contain a jet
+            Ans : np.array
+                the most given answer as given by the volunteers either 'y' or 'n'
         '''
         num_votes = np.asarray(self.data['data.no']) + np.asarray(self.data['data.yes'])
         counts    = np.asarray(np.dstack([self.data['data.yes'], self.data['data.no']])[0])
@@ -55,6 +65,16 @@ class QuestionResult:
         '''
         Connect to the Zooniverse to get the observation starting time, SOL event, 
         filenames of 1st image of the subject and the end_time of the subjects.
+        Output
+        -----
+            obs_time : np.array(dtype=str)
+                starting times of the subjects
+            SOL : np.array(dtype=str)
+                SOL/HEK event name of the subject
+            filenames : np.array(dtype=str)
+                filenames of the 1st image of the subjects
+            end_time : np.array(dtype=str)
+                time of the last image of the subject
         '''
         
         obs_time = np.array([])
@@ -83,6 +103,23 @@ class QuestionResult:
     def count_jets(self,A,t):
         '''
         Get properties of the SOL event by looping over the various subjects
+        Inputs
+        ------
+        A : np.array
+            list of answers of the subjects
+        t : np.array
+            starting times of the subjects
+            
+        Output
+        ------
+            tel : int
+                count of how many jet events (sequential jet subjects)
+            L : str
+                string of flagging per jet event seperated by ' '
+            start : str
+                string of starting times jet event seperated by ' '
+            end : str
+                string of end times jet event seperated by ' '
         '''
     
         L=''
@@ -123,6 +160,11 @@ class QuestionResult:
     def csv_SOL(self, SOL, obs_time, Ans, agreement, jet_mask, non_jet_mask, task,filenames, end_time):
         '''
         Make the subject and SOL csv-files
+        
+        Input
+        -----
+        SOL, obs_time, Ans, agreement, jet_mask, non_jet_mask, task,filenames, end_time : str format
+        Properties of the subjects to be saved in a csv file
         '''
     
         open('subjects_{}.csv'.format(task),'w')
