@@ -1,3 +1,9 @@
+import sys
+try:
+    sys.path.append('.')  # assumes you're running this code from JetOrNot/
+    from aggregation import QuestionResult
+except ModuleNotFoundError as e:
+    raise e
 from aggregation import QuestionResult 
 from astropy.io import ascii
 

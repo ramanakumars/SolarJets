@@ -103,7 +103,7 @@ def create_gif(jets):
         # and add each plot artist to the list
         jetims = []
         for jet in jets:
-            jetims.extend(jet.plot(ax))
+            jetims.extend(jet.plot(ax, plot_sigma=False))
         
         # combine all the plot artists together
         ims.append([im1, *jetims])
@@ -1419,7 +1419,7 @@ class Jet:
 
         return boxes
 
-    def plot(self, ax):
+    def plot(self, ax, plot_sigma=True):
         '''
             Plot the the data for this jet object. Plots the 
             start and end clustered points, and the associated 
@@ -1471,20 +1471,21 @@ class Jet:
 
         arrowplot = ax.arrow(*point0, vec[0], vec[1], color='white', width=2, length_includes_head=True, head_width=10)
 
-        if hasattr(self, 'sigma'):
-            # calculate the bounding box for the cluster confidence
-            plus_sigma, minus_sigma = sigma_shape(self.cluster_values, self.sigma)
-            
-            # get the boxes edges
-            plus_sigma_box  = get_box_edges(*plus_sigma)
-            minus_sigma_box = get_box_edges(*minus_sigma)
+        if plot_sigma:
+            if hasattr(self, 'sigma'):
+                # calculate the bounding box for the cluster confidence
+                plus_sigma, minus_sigma = sigma_shape(self.cluster_values, self.sigma)
+                
+                # get the boxes edges
+                plus_sigma_box  = get_box_edges(*plus_sigma)
+                minus_sigma_box = get_box_edges(*minus_sigma)
 
-            # create a fill between the - and + sigma boxes
-            x_p = plus_sigma_box[:,0]
-            y_p = plus_sigma_box[:,1]
-            x_m = minus_sigma_box[:,0]
-            y_m = minus_sigma_box[:,1]
-            ax.fill(np.append(x_p, x_m[::-1]), np.append(y_p, y_m[::-1]), color='white', alpha=0.3)
+                # create a fill between the - and + sigma boxes
+                x_p = plus_sigma_box[:,0]
+                y_p = plus_sigma_box[:,1]
+                x_m = minus_sigma_box[:,0]
+                y_m = minus_sigma_box[:,1]
+                ax.fill(np.append(x_p, x_m[::-1]), np.append(y_p, y_m[::-1]), color='white', alpha=0.3)
 
         return [boxplot, startplot, endplot, startextplot, endextplot, *boxextplots, arrowplot]
 
