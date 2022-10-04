@@ -587,7 +587,7 @@ class JetCluster:
 
                 # for each jet, plot all the details
                 # and add each plot artist to the list
-                jetims = jet.plot(ax)
+                jetims = jet.plot(ax, plot_sigma=False)
                 
                 # combine all the plot artists together
                 ims.append([im1, *jetims])
