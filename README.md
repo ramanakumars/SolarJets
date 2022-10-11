@@ -75,6 +75,8 @@ cd BoxTheJets/
 Open Find_export_jetclusters.ipynb and run the code until the end. Note that at the moment this part of the code can only be done on the foxsiadmins computer becaus access to the database is required. 
 The export will be done in a json and a csv format. The csv format will be easier to quickly work with for the statistics, but for full access to the aggregated zooniverse data and the functions written for  
 the JetCluster object the json file has a wider functionality. 
+#Look at the jet size evolution per SOL/HEK event
+Plotting_box_size.ipynb
 
 # Final results and analysis
 Go back to main directory for the two last jupyter notebooks. 
