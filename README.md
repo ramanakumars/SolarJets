@@ -49,8 +49,7 @@ Calculate the confidence of the jets found in the subjects. Are the jets of high
 Plot the agreement of the Jet Or Not question asked during the BoxThe Jets workflow, sorted by SOL/HEK event. Note that gaps will be present in the graphs due to the presence of only the pushed subjects. 
 `Plotting_agreement_T3.ipynb`
 
-From here you can also go on and export the Jet clusters from Find_export_jet_clusters.ipynb using the SOL_T3_stats.csv and subjects_T3.csv made files.    
-However, since the question of the JetOrNot workflow and first question of the BoxTheJets workflow we can also combine the answers to get a better count on the agreement scores. 
+From here you can also go on and export the Jet clusters from Find_export_jet_clusters.ipynb using the SOL_T3_stats.csv and subjects_T3.csv made files. However, since the question of the JetOrNot workflow and first question of the BoxTheJets workflow we can also combine the answers to get a better count on the agreement scores. 
 
 ### Go back to the main directory 
 ``` bash
