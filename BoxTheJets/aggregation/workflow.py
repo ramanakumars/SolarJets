@@ -1575,6 +1575,12 @@ class Jet:
         self.end_extracts = {'x': [], 'y': []}
 
         self.autorotate()
+        
+    def adding_new_attr(self, name_attr,value_attr):
+        '''
+            Add an additional attribute of value value_attr and name name_attr to the jet object 
+        '''
+        setattr(self, name_attr, value_attr)
 
     def get_extract_starts(self):
         '''
