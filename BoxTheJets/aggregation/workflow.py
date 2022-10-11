@@ -22,6 +22,24 @@ def get_box_edges(x, y, w, h, a):
     '''
         Return the corners of the box given one corner, width, height
         and angle
+
+        Inputs
+        ------
+        x : float
+            Box left bottom edge x-coordinate
+        y : float
+            Box left bottom edge y-coordinate
+        w : float
+            Box width
+        h : float
+            Box height
+        a : flat
+            Rotation angle
+
+        Outputs
+        --------
+        corners : numpy.ndarray
+            Length 4 array with coordinates of the box edges
     '''
     cx = (2*x+w)/2
     cy = (2*y+h)/2
@@ -40,6 +58,21 @@ def get_box_edges(x, y, w, h, a):
     return corners
 
 def get_subject_image(subject, frame=7): 
+    '''
+        Fetch the subject image from Panoptes (Zooniverse database)
+
+        Inputs
+        ------
+        subject : int
+            Zooniverse subject ID
+        frame : int
+            Frame to extract (between 0-14, default 7)
+
+        Outputs
+        -------
+        img : numpy.ndarray
+            RGB image corresponding to `frame`
+    '''
     # get the subject metadata from Panoptes
     subjecti = Subject(int(subject))
     try:
@@ -56,9 +89,45 @@ def get_subject_image(subject, frame=7):
     return img
 
 def get_point_distance(x0, y0, x1, y1):
+    '''
+        Get Euclidiean distance between two points (x0, y0) and (x1, y1)
+
+        Inputs
+        ------
+        x0 : float
+            First point x-coordinate
+        y0 : float
+            First point y-coordinate
+        x1 : float
+            Second point x-coordinate
+        y1 : float
+            Second point y-coordinate
+
+        Outputs
+        --------
+        dist : float
+            Euclidian distance between (x0, y0) and (x1, y1)
+    '''
     return np.sqrt((x0-x1)**2. + (y0-y1)**2.)
 
 def get_box_distance(box1, box2):
+    '''
+        Get point-wise distance betweeen 2 boxes. 
+        Calculates and find the average distance between each edge
+        for each box
+
+        Inputs
+        ------
+        box1 : list
+            parameters corresponding to the first box (see `get_box_edges`)
+        box2 : list
+            parameters corresponding to the second box (see `get_box_edges`)
+
+        Outputs
+        -------
+        dist : float
+            Average point-wise distance between the two box edges
+    '''
     b1_edges = get_box_edges(*box1)[:4]
     b2_edges = get_box_edges(*box2)[:4]
 
@@ -81,6 +150,11 @@ def create_gif(jets):
     '''
         Create a gif of the jet objects showing the 
         image and the plots from the `Jet.plot()` method
+
+        Inputs
+        ------
+        jets : list
+            List of `Jet` objects corresponding to the same subject
     '''
     # get the subject that the jet belongs to
     subject = jets[0].subject
@@ -117,6 +191,20 @@ def scale_shape(params, gamma):
     '''
         scale the box by a factor of gamma 
         about the center 
+
+        Inputs
+        ------
+        params : list
+            Parameter list corresponding to the box (x, y, w, h, a).
+            See `get_box_edges`
+        gamma : float
+            Scaling parameter. Equal to sqrt(1 - sigma), where sigma
+            is the box confidence from the SHGO box-averaging step
+
+        Outputs
+        -------
+        scaled_params : list
+            Parameter corresponding to the box scaled by the factor gamma
     '''
     return [
         # upper left corner moves
@@ -134,6 +222,22 @@ def sigma_shape(params, sigma):
     '''
         calculate the upper and lower bounding box
         based on the sigma of the cluster
+
+        Inputs
+        ------
+        params : list
+            Parameter list corresponding to the box (x, y, w, h, a).
+            See `get_box_edges`
+        sigma : float
+            Confidence of the box, given by the minimum distance of the 
+            SHGO box averaging step. See the `panoptes_aggregation` module.
+
+        Outputs
+        -------
+        plus_sigma : list
+            Parameters corresponding to the box scaled to the upper sigma bound
+        minus_sigma : list
+            Parameters corresponding to the box scaled to the lower sigma bound
     '''
     gamma = np.sqrt(1 - sigma)
     plus_sigma = scale_shape(params, 1 / gamma)
@@ -170,7 +274,7 @@ class Aggregator:
         '''
             Return a list of known subjects in the reduction data
 
-            Returns
+            Outputs
             -------
             subjects : numpy.ndarray
                 Array of subject IDs on Zooniverse
@@ -193,7 +297,7 @@ class Aggregator:
             task : string
                 Either 'T1' or 'T5' for the first jet or second jet
 
-            Returns
+            Outputs
             -------
             data : dict
                 Raw classification data for the x, y (xs, ys for the start and xe, ye for the end)
@@ -237,7 +341,7 @@ class Aggregator:
             task : string
                 Either 'T1' or 'T5' for the first jet or second jet
 
-            Returns
+            Outputs
             -------
             data : dict
                 Raw classification data for the x, y, width, height and angle (degrees)
@@ -376,6 +480,11 @@ class Aggregator:
     def plot_subject_both(self, subject):
         '''
             Plots both tasks for a given subject
+            
+            Inputs
+            ------
+            subject : int
+                Zooniverse subject ID
         '''
         fig, ax = plt.subplots(1,1, dpi=150)
 
@@ -388,6 +497,17 @@ class Aggregator:
     def plot_subject(self, subject, task, ax=None):
         '''
             Plot the data for a given subject/task 
+            
+            Inputs
+            ------
+            subject : int
+                Zooniverse subject ID
+            task : string
+                task for the Zooniverse workflow (T1 for first jet and T2 for second jet)
+            ax : matplotlib.Axes
+                pass an axis variable to append the subject to a given axis (e.g., when
+                making multi-subject plots where each axis corresponds to a subject). 
+                Default is None, and will create a new figure/axis combo.
         '''
 
         # get the points data and associated cluster
@@ -480,10 +600,24 @@ class Aggregator:
             plt.show()
 
     def load_classification_data(self, classification_file='box-the-jets-classifications.csv'):
+        '''
+            Load the classification data into the aggregator from the CSV file
+
+            Inputs
+            ------
+            classification_file : str
+                path to the classification file (in Zooniverse format)
+        '''
         self.classification_file = classification_file
         self.classification_data = ascii.read(classification_file, delimiter=',')
 
     def get_retired_subjects(self):
+        '''
+            Loop through each subject and find out whether it has been retired. 
+            This is currently very slow since it queries each subject against the 
+            Zooniverse backend. Not required if the workflow has been completed. 
+            Retired subjects are added to the `retired_subjects` attribute.
+        '''
         subjects = np.unique(np.vstack((self.points_data['subject_id'][:], self.box_data['subject_id'][:])))
         print(len(subjects))
 
@@ -526,6 +660,31 @@ class Aggregator:
         '''
             get the distribution of classifications by frame number for the base of the jet (both start and end)
             and determine the best frame for each, based on a cluster probability based metric
+            
+            Inputs
+            ------
+            subject : int
+                Zooniverse subject ID
+            task : string
+                task for the Zooniverse workflow (T1 for first jet and T2 for second jet)
+
+            Outputs
+            -------
+            frame_info : dict
+                Dictionary with six keys:
+                    - start_frames : list
+                        List of coordinates for the base point for each frame in the subject
+                    - start_score : list
+                        Score for each frame (given by the extract probability for each cluster)
+                    - start_best : int
+                        Frame corresponding to the start point with the best score
+                    - end_frames : list
+                        List of coordinates for the base point for each frame in the subject 
+                        (for the base point for the last frame that the jet is visible in)
+                    - end_score : list
+                        Score for each frame (given by the extract probability for each cluster)
+                    - end_best : int
+                        Frame corresponding to the end point with the best score
         '''
         # get the points data and associated cluster
         points_data, points_clusters = self.get_points_data(subject, task)
@@ -624,6 +783,22 @@ class Aggregator:
     def get_frame_time_box(self, subject, task='T1'):
         '''
             get the distribution of classifications by frame number for box. similar to _base above
+            
+            Inputs
+            ------
+            subject : int
+                Zooniverse subject ID
+            task : string
+                task for the Zooniverse workflow (T1 for first jet and T2 for second jet)
+
+            Outputs
+            -------
+            frame_info : dict
+                Dictionary with two keys:
+                  - box_frames : list
+                        List of box parameters for each frame in the subject
+                  - box_score : list
+                        Score for each frame (given by the box sigma)
         '''
         # get the cluster and points information from the reduced data
         box_data, box_clusters = self.get_box_data(subject, task)
@@ -698,6 +873,13 @@ class Aggregator:
     def plot_frame_info(self, subject, task='T1'):
         '''
             plot the distribution of classifications by frame time
+            
+            Inputs
+            ------
+            subject : int
+                Zooniverse subject ID
+            task : string
+                task for the Zooniverse workflow (T1 for first jet and T2 for second jet)
         '''
         base_points = self.get_frame_time_base(subject, task)
         box         = self.get_frame_time_box(subject, task)
@@ -750,6 +932,27 @@ class Aggregator:
 
             This method assumes that clusters exist, and will raise a `ValueError` if clusters do not exist for 
             a given task. 
+
+            Inputs
+            ------
+            subject : int
+                Zooniverse subject ID
+            task : string
+                task for the Zooniverse workflow (T1 for first jet and T2 for second jet)
+
+            Outputs
+            -------
+            start_dist : numpy.ndarray
+                Average distance between each extract with the cluster center
+                for each cluster (for base start point)
+            end_dist : numpy.ndarray
+                Average distance between each extract with the cluster center
+                for each cluster (for base end point)
+            box_ious : numpy.ndarray
+                Average IoU between extract boxes and the average cluster box
+                for each cluster
+            box_gamma : numpy.ndarray
+                Average gamma scale (confidence interval) for each cluster
         '''
         # convert the data from the csv into an array
         points_data, point_clust = self.get_points_data(subject, task)
@@ -1033,7 +1236,7 @@ class Aggregator:
             plot : bool [default=False]
                 flag for whether to plot the intermediate steps
 
-            Returns
+            Outputs
             -------
             start_points : `numpy.ndarray`
                 Final set of base start points for the jet (post merger)
@@ -1204,7 +1407,7 @@ class Aggregator:
             subject : int
                 The subject ID in Zooniverse
 
-            Returns
+            Outputs
             --------
             filtered_box_data : list
                 List of dictionaries that have the classification info (x, y, w, h, a) 
@@ -1385,6 +1588,12 @@ class Jet:
         '''
             Get the extract coordinates associated with the 
             starting base points
+
+            Outputs
+            -------
+            coords : numpy.ndarray
+                coordinates of the base points from the extracts
+                for the start frame
         '''
         x_s = self.start_extracts['x']
         y_s = self.start_extracts['y']
@@ -1395,6 +1604,12 @@ class Jet:
         '''
             Get the extract coordinates associated with the 
             final base points
+
+            Outputs
+            -------
+            coords : numpy.ndarray
+                coordinates of the base points from the extracts
+                for the final frame
         '''
         x_e = self.end_extracts['x']
         y_e = self.end_extracts['y']
@@ -1405,6 +1620,12 @@ class Jet:
         '''
             Get the extract shapely Polygons corresponding
             to the boxes
+
+            Outputs
+            -------
+            boxes : list
+                List of `shapely.Polygon` objects corresponding
+                to individual boxes in the extracts
         '''
         boxes = []
         for i in range(len(self.box_extracts['x'])):
@@ -1433,7 +1654,7 @@ class Jet:
                 function is to plot onto an existing axis which already has
                 the subjet image and potentially other jet plots
 
-            Returns
+            Outputs
             -------
             ims : list
                 list of `matplotlib.Artist` objects that was created for this plot
@@ -1529,10 +1750,10 @@ class Jet:
 
     def get_width_height_pairs(self):
         '''
-            Returns the base points and the height line segment
+            Outputs the base points and the height line segment
             points 
 
-            Returns
+            Outputs
             -------
             base_points : `numpy.ndarray`
                 the pair of points that correspond to the base of the jet
