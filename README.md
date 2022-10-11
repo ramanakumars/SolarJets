@@ -10,7 +10,7 @@ To install the required python modules, run the following in main repo folder:
 python3 -m pip install -r requirements.txt
 ```
 
-## Usage
+# Usage
 
 
 ``` bash
@@ -18,10 +18,10 @@ python3 -m pip install -r requirements.txt
 cd JetOrNot
 ``` 
 
-# Run the aggregation on the JetOrNot workflow results
+### Run the aggregation on the JetOrNot workflow results
 Follow the steps in the README JetOrNot to do the aggregation steps of the data. 
 
-# Check the results from the Jet or Not workflow by looking at ipynb notebooks
+### Check the results from the Jet or Not workflow by looking at ipynb notebooks
 #Look at the jet subject and non-jet subjects distribution over time.
 jet_time_distribution.ipynb
 #Look at the resulting agreements and check the number of votes per subject.
@@ -29,16 +29,16 @@ jetornot.ipynb
 #Plot the agreement of the subjects in Jet Or Not workflow over time. Sorted by SOL/ HEK event
 Plotting_agreement_T0.ipynb
 
-# Go back to the main directory and into the BoxTheJet directroy
+### Go back to the main directory and into the BoxTheJet directroy
 ``` bash
 cd ..
 cd BoxTheJets/
 ```
 
-# Run the aggregation on the BoxTheJets workflow results
+### Run the aggregation on the BoxTheJets workflow results
 Follow the steps in the README BoxTheJets to do the aggregation steps of the data.
 
-# Check the results from the BoxTheJets workflow by looking at ipynb notebooks
+### Check the results from the BoxTheJets workflow by looking at ipynb notebooks
 #Look at the first results of the jet aggregation. Check the resulting box and point clusters and the aggregation code in multiple jet subjects. 
 simple_analysis.ipynb
 #Calculate the confidence of the jets found in the subjects. Are the jets of high quality or should a cut be made based on their confidence scores. 
@@ -49,25 +49,25 @@ Plotting_agreement_T3.ipynb
 From here you can also go on and export the Jet clusters from Find_export_jet_clusters.ipynb using the SOL_T3_stats.csv and subjects_T3.csv made files.    
 However, since the question of the JetOrNot workflow and first question of the BoxTheJets workflow we can also combine the answers to get a better count on the agreement scores. 
 
-# Go back to the main directory 
+### Go back to the main directory 
 ``` bash
 cd ..
 ```
 
-# Run the aggregation on the T0 and T3 files
+### Run the aggregation on the T0 and T3 files
 ``` bash
 python3 make_Tc_csvfiles.py
 ```
 
 This combines the binary resulting of the first workflow and second workflow questions to make the combined answers. This creates the SOL_Tc_stats.csv and subjects_Tc.csv in the main directory.   
 
-# Check the combined question results
+### Check the combined question results
 #Plot the agreement of the combined result of subjects over time. Sorted by SOL/ HEK event
 Plotting_agreement_Tc.ipynb
 #Look at the results of the two workflow questions. Are the agreements scores changing during the second workflow? Do many subjects go from 'yes' to 'no' jet during the second worflow? Are the right subjects being send through?  
 Analysis_combined_question_results.ipynb
 
-# Exporting the Jet Clusters
+### Exporting the Jet Clusters
 Go back to the BoxTheJet/ folder
 ``` bash
 cd BoxTheJets/
@@ -78,7 +78,7 @@ the JetCluster object the json file has a wider functionality.
 #Look at the jet size evolution per SOL/HEK event
 Plotting_box_size.ipynb
 
-# Final results and analysis
+### Final results and analysis
 Go back to main directory for the two last jupyter notebooks. 
 ``` bash
 cd ..
