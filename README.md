@@ -23,11 +23,11 @@ Follow the steps in the README JetOrNot to do the aggregation steps of the data.
 
 ### Check the results from the Jet or Not workflow by looking at ipynb notebooks
 #Look at the jet subject and non-jet subjects distribution over time.
-jet_time_distribution.ipynb
+'jet_time_distribution.ipynb'
 #Look at the resulting agreements and check the number of votes per subject.
-jetornot.ipynb
+'jetornot.ipynb'
 #Plot the agreement of the subjects in Jet Or Not workflow over time. Sorted by SOL/ HEK event
-Plotting_agreement_T0.ipynb
+'Plotting_agreement_T0.ipynb'
 
 ### Go back to the main directory and into the BoxTheJet directroy
 ``` bash
