@@ -1396,14 +1396,9 @@ class Aggregator:
 
             Outputs
             --------
-            filtered_box_data : list
-                List of dictionaries that have the classification info (x, y, w, h, a)
-                for each box, separated by the cluster number. i.e. each index in the list is
-                a different cluster, and each dictionary entry contains a list of values
-                that correspond to that cluster.
-            unique_jets : list
-                List of `shapely.geometry.Polygon` objects that define the rectangle for
-                the best box for each cluster
+            jets : list
+                List of `Jet` objects that are unique per subject (i.e.,
+                they do not share overlap with other jets in the subject)
         '''
         # get the box data and clusters for the two tasks
         data_T1, _ = self.get_box_data(subject, 'T1')
@@ -1440,20 +1435,27 @@ class Aggregator:
             box_points = np.transpose(jeti.exterior.xy)[:4]
 
             dists = []
+            # calculate the distance between each start point 
+            # and the box edges
             for j, point in enumerate(unique_starts):
                 disti = np.median([np.linalg.norm(point-pointi)
                                   for pointi in box_points])
                 dists.append(disti)
 
+            # the best start point is the one with the minimum
+            # distance with all 4
             best_start = unique_starts[np.argmin(dists)]
 
             dists = []
+            # do the same for the end points
             for j, point in enumerate(unique_ends):
                 disti = np.median([np.linalg.norm(
                     point-pointi)*np.linalg.norm(point - best_start) for pointi in box_points])
                 dists.append(disti)
 
             best_end = unique_ends[np.argmin(dists)]
+            
+            # create the jet parameters (edge, width, height, angle)
             jet_params = [unique_jets['x'][i],
                           unique_jets['y'][i],
                           unique_jets['w'][i],
