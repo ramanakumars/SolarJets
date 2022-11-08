@@ -266,12 +266,13 @@ class Aggregator:
             box_file : str
                 path to the reduced box data
         '''
-        self.reductions_file = reductions_file
-        with open(reductions_file, 'r') as in_file:
-            self.reductions_data = json.load(in_file)
+        self.points_file = points_file
+        with open(points_file, 'r') as in_points:
+            self.points_data = json.load(in_points)
 
-        # get a list of unique subjects
-        self.subjects = self.get_subjects()
+        self.box_file = box_file
+        with open(box_file, 'r') as in_box:
+            self.box_data = json.load(in_box)
 
     def get_subjects(self):
         '''
@@ -282,8 +283,8 @@ class Aggregator:
             subjects : numpy.ndarray
                 Array of subject IDs on Zooniverse
         '''
-        subjects = [e['subject_id'] for e in self.reductions_data]
-        # if min([len(e[key]['clusters']) for key in ['box','start','end']]) > 0]
+        points_subjects = [e['subject_id'] for e in self.points_data]
+        box_subjects = [e['subject_id'] for e in self.box_data]
 
         return np.unique(subjects)
 
@@ -307,7 +308,7 @@ class Aggregator:
                 Cluster shape (x, y) for start and end and probabilities and labels of the
                 data points
         '''
-        points_data = list(filter(lambda e: e['subject_id'] == subject, self.reductions_data))
+        points_data = list(filter(lambda e: e['subject_id'] == subject, self.points_data))
 
         assert len(points_data) == 1, f"Found {len(points_data)} matching reductions for points data!"
 
@@ -316,21 +317,21 @@ class Aggregator:
 
         data = {}
 
-        data['x_start'] = np.asarray(points_data['start']['extracts']['x'])
-        data['y_start'] = np.asarray(points_data['start']['extracts']['y'])
-        data['x_end'] = np.asarray(points_data['end']['extracts']['x'])
-        data['y_end'] = np.asarray(points_data['end']['extracts']['y'])
+        data['x_start'] = points_data['start']['extracts']['x']
+        data['y_start'] = points_data['start']['extracts']['y']
+        data['x_end'] = points_data['end']['extracts']['x']
+        data['y_end'] = points_data['end']['extracts']['y']
 
         clusters = {}
-        clusters['x_start'] = np.asarray(points_data['start']['clusters']['x'])
-        clusters['y_start'] = np.asarray(points_data['start']['clusters']['y'])
-        clusters['x_end'] = np.asarray(points_data['end']['clusters']['x'])
-        clusters['y_end'] = np.asarray(points_data['end']['clusters']['y'])
+        clusters['x_start'] = points_data['start']['clusters']['x']
+        clusters['y_start'] = points_data['start']['clusters']['y']
+        clusters['x_end'] = points_data['end']['clusters']['x']
+        clusters['y_end'] = points_data['end']['clusters']['y']
 
-        clusters['prob_start'] = np.asarray(points_data['start']['extracts']['cluster_probabilities'])
-        clusters['prob_end'] = np.asarray(points_data['end']['extracts']['cluster_probabilities'])
-        clusters['labels_start'] = np.asarray(points_data['start']['extracts']['cluster_labels'])
-        clusters['labels_end'] = np.asarray(points_data['end']['extracts']['cluster_labels'])
+        clusters['prob_start'] = points_data['start']['extracts']['cluster_probabilities']
+        clusters['prob_end'] = points_data['start']['extracts']['cluster_probabilities']
+        clusters['labels_start'] = points_data['start']['extracts']['cluster_labels']
+        clusters['labels_end'] = points_data['start']['extracts']['cluster_labels']
 
         return data, clusters
 
