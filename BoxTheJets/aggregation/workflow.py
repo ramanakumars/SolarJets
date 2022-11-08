@@ -266,16 +266,12 @@ class Aggregator:
                 path to the reduced box data
         '''
         self.points_file = points_file
-        self.points_data = ascii.read(points_file, delimiter=',')
+        with open(points_file, 'r') as in_points:
+            self.points_data = json.load(in_points)
 
         self.box_file = box_file
-        self.box_data = ascii.read(box_file, delimiter=',')
-
-        for col in self.box_data.colnames:
-            self.box_data[col].fill_value = '[]'
-
-        for col in self.points_data.colnames:
-            self.points_data[col].fill_value = '[]'
+        with open(box_file, 'r') as in_box:
+            self.box_data = json.load(in_box)
 
     def get_subjects(self):
         '''
@@ -286,12 +282,12 @@ class Aggregator:
             subjects : numpy.ndarray
                 Array of subject IDs on Zooniverse
         '''
-        points_subjects = self.points_data['subject_id']
-        box_subjects = self.points_data['subject_id']
+        points_subjects = [e['subject_id'] for e in self.points_data]
+        box_subjects = [e['subject_id'] for e in self.box_data]
 
         return np.unique([*points_subjects, *box_subjects])
 
-    def get_points_data(self, subject, task):
+    def get_points_data(self, subject, task='T1'):
         '''
             Get the points data and cluster, and associated probabilities and labels
             for a givens subject and task. s corresponds to the start and e corresponds to end
@@ -311,40 +307,30 @@ class Aggregator:
                 Cluster shape (x, y) for start and end and probabilities and labels of the
                 data points
         '''
-        points_data = self.points_data[:][(self.points_data['subject_id'] == subject) & (
-            self.points_data['task'] == task)]
+        points_data = list(filter(lambda e: e['subject_id'] == subject, self.points_data))
 
-        points_data = points_data.filled()
+        assert len(points_data) == 1, f"Found {len(points_data)} matching reductions for points data!"
+
+        # extrac the dictionary for this subject
+        points_data = points_data[0]
 
         data = {}
 
-        data['x_start'] = np.asarray(ast.literal_eval(
-            points_data[f'data.frame0.{task}_tool0_points_x'][0]))
-        data['y_start'] = np.asarray(ast.literal_eval(
-            points_data[f'data.frame0.{task}_tool0_points_y'][0]))
-        data['x_end'] = np.asarray(ast.literal_eval(
-            points_data[f'data.frame0.{task}_tool1_points_x'][0]))
-        data['y_end'] = np.asarray(ast.literal_eval(
-            points_data[f'data.frame0.{task}_tool1_points_y'][0]))
+        data['x_start'] = points_data['start']['extracts']['x']
+        data['y_start'] = points_data['start']['extracts']['y']
+        data['x_end'] = points_data['end']['extracts']['x']
+        data['y_end'] = points_data['end']['extracts']['y']
 
         clusters = {}
-        clusters['x_start'] = np.asarray(ast.literal_eval(
-            points_data[f'data.frame0.{task}_tool0_clusters_x'][0]))
-        clusters['y_start'] = np.asarray(ast.literal_eval(
-            points_data[f'data.frame0.{task}_tool0_clusters_y'][0]))
-        clusters['x_end'] = np.asarray(ast.literal_eval(
-            points_data[f'data.frame0.{task}_tool1_clusters_x'][0]))
-        clusters['y_end'] = np.asarray(ast.literal_eval(
-            points_data[f'data.frame0.{task}_tool1_clusters_y'][0]))
+        clusters['x_start'] = points_data['start']['clusters']['x']
+        clusters['y_start'] = points_data['start']['clusters']['y']
+        clusters['x_end'] = points_data['end']['clusters']['x']
+        clusters['y_end'] = points_data['end']['clusters']['y']
 
-        clusters['prob_start'] = np.asarray(ast.literal_eval(
-            points_data[f'data.frame0.{task}_tool0_cluster_probabilities'][0]))
-        clusters['labels_start'] = np.asarray(ast.literal_eval(
-            points_data[f'data.frame0.{task}_tool0_cluster_labels'][0]))
-        clusters['prob_end'] = np.asarray(ast.literal_eval(
-            points_data[f'data.frame0.{task}_tool1_cluster_probabilities'][0]))
-        clusters['labels_end'] = np.asarray(ast.literal_eval(
-            points_data[f'data.frame0.{task}_tool1_cluster_labels'][0]))
+        clusters['prob_start'] = points_data['start']['extracts']['cluster_probabilities']
+        clusters['prob_end'] = points_data['start']['extracts']['cluster_probabilities']
+        clusters['labels_start'] = points_data['start']['extracts']['cluster_labels']
+        clusters['labels_end'] = points_data['start']['extracts']['cluster_labels']
 
         return data, clusters
 
