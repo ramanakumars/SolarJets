@@ -82,7 +82,7 @@ def get_scales_set(save=True):
         for subject in subject_set:
             subjects.append(subject.id)
     else:
-        subject_data = ascii.read('reductions/point_reducer_hdbscan_box_the_jets.csv')
+        subject_data = ascii.read('extracts/point_extractor_by_frame_box_the_jets.csv')
         subjects     = list(np.unique(subject_data['subject_id']))
 
     # run this process in parallel since there is a lot of 
@@ -95,7 +95,6 @@ def get_scales_set(save=True):
             try:
                 r = tqdm.tqdm(pool.imap_unordered(get_subject_scale, subjects), total=len(subjects))
 
-                pool.close()
 
                 ninpt = len(subjects)
 
@@ -116,13 +115,15 @@ def get_scales_set(save=True):
                     r.set_postfix({'errors': nfailed})
 
             except KeyboardInterrupt:
+                pool.close()
                 pool.terminate()
                 pool.join()
-            except Exception as e:
-                raise(e)
+            except Exception:
+                raise
             
             run += 1
 
+        pool.close()
         pool.join()
 
 
