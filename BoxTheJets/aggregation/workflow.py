@@ -6,6 +6,7 @@ import ast
 from panoptes_client import Panoptes, Subject
 from skimage import io, transform
 import getpass
+import json
 from shapely.geometry import Polygon, Point
 
 
@@ -254,7 +255,7 @@ class Aggregator:
         Single data class to handle different aggregation requirements
     '''
 
-    def __init__(self, points_file, box_file):
+    def __init__(self, reductions_file):
         '''
             Inputs
             ------
@@ -263,13 +264,12 @@ class Aggregator:
             box_file : str
                 path to the reduced box data
         '''
-        self.points_file = points_file
-        with open(points_file, 'r') as in_points:
-            self.points_data = json.load(in_points)
+        self.reductions_file = reductions_file
+        with open(reductions_file, 'r') as in_file:
+            self.reductions_data = json.load(in_file)
 
-        self.box_file = box_file
-        with open(box_file, 'r') as in_box:
-            self.box_data = json.load(in_box)
+        # get a list of unique subjects
+        self.subjects = self.get_subjects()
 
     def get_subjects(self):
         '''
@@ -280,10 +280,9 @@ class Aggregator:
             subjects : numpy.ndarray
                 Array of subject IDs on Zooniverse
         '''
-        points_subjects = [e['subject_id'] for e in self.points_data]
-        box_subjects = [e['subject_id'] for e in self.box_data]
+        subjects = [e['subject_id'] for e in self.reductions_data]
 
-        return np.unique([*points_subjects, *box_subjects])
+        return np.unique(subjects)
 
     def get_points_data(self, subject, task='T1'):
         '''
@@ -305,7 +304,7 @@ class Aggregator:
                 Cluster shape (x, y) for start and end and probabilities and labels of the
                 data points
         '''
-        points_data = list(filter(lambda e: e['subject_id'] == subject, self.points_data))
+        points_data = list(filter(lambda e: e['subject_id'] == subject, self.reductions_data))
 
         assert len(points_data) == 1, f"Found {len(points_data)} matching reductions for points data!"
 
@@ -352,45 +351,33 @@ class Aggregator:
                 Cluster shape (x, y, width, height and angle) and probabilities and labels of the
                 data points
         '''
-        box_data = self.box_data[:][(self.box_data['subject_id'] == subject) & (
-            self.box_data['task'] == task)]
+        
+        box_data = list(filter(lambda e: e['subject_id'] == subject, self.reductions_data))
 
-        box_data = box_data.filled()
+        assert len(box_data) == 1, f"Found {len(box_data)} matching reductions for box data!"
+
+        # extrac the dictionary for this subject
+        box_data = box_data[0]
 
         data = {}
 
-        data['x'] = np.asarray(ast.literal_eval(
-            box_data[f'data.frame0.{task}_tool2_rotateRectangle_x'][0]))
-        data['y'] = np.asarray(ast.literal_eval(
-            box_data[f'data.frame0.{task}_tool2_rotateRectangle_y'][0]))
-        data['w'] = np.asarray(ast.literal_eval(
-            box_data[f'data.frame0.{task}_tool2_rotateRectangle_width'][0]))
-        data['h'] = np.asarray(ast.literal_eval(
-            box_data[f'data.frame0.{task}_tool2_rotateRectangle_height'][0]))
-        data['a'] = np.asarray(ast.literal_eval(
-            box_data[f'data.frame0.{task}_tool2_rotateRectangle_angle'][0]))
+        data['x'] = box_data['box']['extracts']['x']
+        data['y'] = box_data['box']['extracts']['y']
+        data['w'] = box_data['box']['extracts']['width']
+        data['h'] = box_data['box']['extracts']['height']
+        data['a'] = box_data['box']['extracts']['angle']
 
         clusters = {}
-
-        clusters['x'] = np.asarray(ast.literal_eval(
-            box_data[f'data.frame0.{task}_tool2_clusters_x'][0]))
-        clusters['y'] = np.asarray(ast.literal_eval(
-            box_data[f'data.frame0.{task}_tool2_clusters_y'][0]))
-        clusters['w'] = np.asarray(ast.literal_eval(
-            box_data[f'data.frame0.{task}_tool2_clusters_width'][0]))
-        clusters['h'] = np.asarray(ast.literal_eval(
-            box_data[f'data.frame0.{task}_tool2_clusters_height'][0]))
-        clusters['a'] = np.asarray(ast.literal_eval(
-            box_data[f'data.frame0.{task}_tool2_clusters_angle'][0]))
-
-        clusters['sigma'] = np.asarray(ast.literal_eval(
-            box_data[f'data.frame0.{task}_tool2_clusters_sigma'][0]))
-        clusters['labels'] = np.asarray(ast.literal_eval(
-            box_data[f'data.frame0.{task}_tool2_cluster_labels'][0]))
-
+        clusters['x'] = box_data['box']['clusters']['x']
+        clusters['y'] = box_data['box']['clusters']['y']
+        clusters['w'] = box_data['box']['clusters']['width']
+        clusters['h'] = box_data['box']['clusters']['height']
+        clusters['a'] = box_data['box']['clusters']['angle']
+        
+        clusters['sigma'] = box_data['box']['clusters']['sigma']
+        clusters['labels'] = box_data['box']['extracts']['cluster_labels']
         try:
-            clusters['prob'] = np.asarray(ast.literal_eval(
-                box_data[f'data.frame0.{task}_tool2_cluster_probabilities'][0]))
+            clusters['prob'] = box_data['box']['extracts']['cluster_probabilities']
         except KeyError:
             # OPTICS cluster doesn't have probabilities
             probs = np.zeros(len(data['x']))
@@ -409,7 +396,7 @@ class Aggregator:
                     probs[i] = boxi_data.intersection(
                         boxi_clust).area/boxi_data.union(boxi_clust).area
             clusters['prob'] = probs
-
+        
         return data, clusters
 
     def plot_subject_both(self, subject):
@@ -637,11 +624,7 @@ class Aggregator:
         x1_i = points_data['x_end']
         y1_i = points_data['y_end']
 
-        cx0_i = points_clusters['x_start']
-        cy0_i = points_clusters['y_start']
         p0_i = points_clusters['prob_start']
-        cx1_i = points_clusters['x_end']
-        cy1_i = points_clusters['y_end']
         p1_i = points_clusters['prob_end']
 
         # get the extract data so that we can obtain frame_time info
@@ -761,11 +744,6 @@ class Aggregator:
         h_i = box_data['h']
         a_i = box_data['a']
 
-        cx_i = box_clusters['x']
-        cy_i = box_clusters['y']
-        cw_i = box_clusters['w']
-        ch_i = box_clusters['h']
-        ca_i = box_clusters['a']
         p0_i = box_clusters['prob']
 
         # get the extract data so that we can obtain frame_time info
@@ -826,9 +804,6 @@ class Aggregator:
 
         # the score is the sum of the probabilities at each frame
         score = [np.sum(weight) for weight in weights]
-
-        # get the number of classifications for each point in time
-        npoints = [len(starti) for starti in frames]
 
         return {'box_frames': frames, 'box_score': score}
 
@@ -1135,8 +1110,8 @@ class Aggregator:
 
             # add the box with the best iou to the cluster list
             # sum_ious = temp_box_ious[merge_mask]*temp_box_count[merge_mask]
-            sum_ious = temp_boxes['iou'][merge_mask] * \
-                temp_boxes['count'][merge_mask]
+            # sum_ious = temp_boxes['iou'][merge_mask] * \
+            #    temp_boxes['count'][merge_mask]
             # clust_boxes.append(\
             #    temp_clust_boxes[merge_mask][np.argmax(sum_ious)])
 
