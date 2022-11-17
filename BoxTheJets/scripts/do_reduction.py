@@ -52,7 +52,7 @@ def _do_reduction(box_data_sub, point_data_sub, subject):
 
     box_out = {}
     box_out['clusters'] = []
-    labels = np.asarray(box_reduction['frame0'][f'T1_tool2_cluster_labels'])
+    labels = np.asarray(box_reduction['frame0']['T1_tool2_cluster_labels'])
 
     # check if clusters were found
     if 'T1_tool2_clusters_x' in box_reduction['frame0']:
@@ -62,7 +62,7 @@ def _do_reduction(box_data_sub, point_data_sub, subject):
         box_out['clusters'] = defaultdict(list)
 
         # load in individual keys for the box properties
-        for key in ['x', 'y', 'width', 'height', 'angle']: 
+        for key in ['x', 'y', 'width', 'height', 'angle', 'sigma']: 
             for cluster in range(nclusters):
                 box_out['clusters'][key].append(box_reduction['frame0'][f'T1_tool2_clusters_{key}'][cluster])
             
@@ -153,9 +153,7 @@ def _do_reduction(box_data_sub, point_data_sub, subject):
     out_row['end'] = points_out['end']
     out_row['subject_id'] = subject
 
-    out_data.append(out_row)
-
-    return out_data
+    return out_row
 
 
 if __name__=='__main__':
