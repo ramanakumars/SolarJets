@@ -266,13 +266,12 @@ class Aggregator:
             box_file : str
                 path to the reduced box data
         '''
-        self.points_file = points_file
-        with open(points_file, 'r') as in_points:
-            self.points_data = json.load(in_points)
+        self.reductions_file = reductions_file
+        with open(reductions_file, 'r') as in_file:
+            self.reductions_data = json.load(in_file)
 
-        self.box_file = box_file
-        with open(box_file, 'r') as in_box:
-            self.box_data = json.load(in_box)
+        # get a list of unique subjects
+        self.subjects = self.get_subjects()
 
     def get_subjects(self):
         '''
@@ -283,8 +282,7 @@ class Aggregator:
             subjects : numpy.ndarray
                 Array of subject IDs on Zooniverse
         '''
-        points_subjects = [e['subject_id'] for e in self.points_data]
-        box_subjects = [e['subject_id'] for e in self.box_data]
+        subjects = [e['subject_id'] for e in self.reductions_data]
 
         return np.unique(subjects)
 
@@ -308,7 +306,7 @@ class Aggregator:
                 Cluster shape (x, y) for start and end and probabilities and labels of the
                 data points
         '''
-        points_data = list(filter(lambda e: e['subject_id'] == subject, self.points_data))
+        points_data = list(filter(lambda e: e['subject_id'] == subject, self.reductions_data))
 
         assert len(points_data) == 1, f"Found {len(points_data)} matching reductions for points data!"
 
@@ -365,6 +363,7 @@ class Aggregator:
 
         data = {}
 
+<<<<<<< HEAD
         data['x'] = np.asarray(box_data['box']['extracts']['x'])
         data['y'] = np.asarray(box_data['box']['extracts']['y'])
         data['w'] = np.asarray(box_data['box']['extracts']['width'])
@@ -386,6 +385,24 @@ class Aggregator:
                 clusters[key] = np.asarray([])
         clusters['labels'] = np.asarray(box_data['box']['extracts']['cluster_labels'])
         try:
+=======
+        data['x'] = box_data['box']['extracts']['x']
+        data['y'] = box_data['box']['extracts']['y']
+        data['w'] = box_data['box']['extracts']['width']
+        data['h'] = box_data['box']['extracts']['height']
+        data['a'] = box_data['box']['extracts']['angle']
+
+        clusters = {}
+        clusters['x'] = box_data['box']['clusters']['x']
+        clusters['y'] = box_data['box']['clusters']['y']
+        clusters['w'] = box_data['box']['clusters']['width']
+        clusters['h'] = box_data['box']['clusters']['height']
+        clusters['a'] = box_data['box']['clusters']['angle']
+        
+        clusters['sigma'] = box_data['box']['clusters']['sigma']
+        clusters['labels'] = box_data['box']['extracts']['cluster_labels']
+        try:
+>>>>>>> added box data parsing to aggregator
             clusters['prob'] = box_data['box']['extracts']['cluster_probabilities']
         except KeyError:
             # OPTICS cluster doesn't have probabilities
