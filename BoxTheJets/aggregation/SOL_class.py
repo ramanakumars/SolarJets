@@ -1,20 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from IPython.display import Image, display
-from panoptes_client import Panoptes, Subject, Workflow
 from dateutil.parser import parse
-import ast
-import os
-import datetime
-from matplotlib.dates import DateFormatter
 import matplotlib.animation as animation
-from .workflow import Aggregator, Jet
+from .workflow import Jet
 from .workflow import get_subject_image, get_box_edges
-from sklearn.cluster import OPTICS
-from scipy.spatial.distance import squareform
-from scipy.cluster.hierarchy import linkage, fcluster
-from shapely.geometry import Polygon, Point
-import hdbscan
+from shapely.geometry import Polygon
 import json
 import tqdm
 
@@ -278,7 +269,6 @@ class SOL:
                 name of the SOL event used in Zooniverse 
         '''
         subjects=self.get_subjects(SOL_event)
-        obs_time=self.get_obs_time(SOL_event)
 
         for subject in subjects:
             ## check to make sure that these subjects had classification
@@ -421,8 +411,6 @@ class SOL:
         time_metric  = np.zeros((len(jets), len(jets)))
         point_metric = np.zeros((len(jets), len(jets)))
 
-        dtime = (times_all[-1] - times_all[0]).astype('timedelta64[s]').astype(float)
-
         for j, jetj in enumerate(jets):
             for k, jetk in enumerate(jets):
                 if j==k:
@@ -459,7 +447,6 @@ class SOL:
         while len(indices) > 0:
             ind = indices[0]
             # this is the jet we will compare against
-            j0 = jets[ind]
 
             # find all the jets that fall within a distance 
             # eps for this jet and those that are not 
@@ -473,8 +460,6 @@ class SOL:
             if len(unique_subs) != sum(mask):
                 # in this case, there are duplicates
                 # we will choose the best subject from each duplicate
-                count = [sum(subjects[mask]==subject) for subject in unique_subs]
-
                 # loop through the unique subs
                 for sub in unique_subs:
                     # find the indices that correspond to this
@@ -608,6 +593,7 @@ class JetCluster:
         # save the animation as a gif
         ani = animation.ArtistAnimation(fig, ims)
         ani.save(output, writer='imagemagick')
+        plt.close('all')
         
     def json_export(self,output):
         '''
