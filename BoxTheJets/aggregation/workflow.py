@@ -283,6 +283,7 @@ class Aggregator:
                 Array of subject IDs on Zooniverse
         '''
         subjects = [e['subject_id'] for e in self.reductions_data]
+        # if min([len(e[key]['clusters']) for key in ['box','start','end']]) > 0]
 
         return np.unique(subjects)
 
@@ -315,21 +316,21 @@ class Aggregator:
 
         data = {}
 
-        data['x_start'] = points_data['start']['extracts']['x']
-        data['y_start'] = points_data['start']['extracts']['y']
-        data['x_end'] = points_data['end']['extracts']['x']
-        data['y_end'] = points_data['end']['extracts']['y']
+        data['x_start'] = np.asarray(points_data['start']['extracts']['x'])
+        data['y_start'] = np.asarray(points_data['start']['extracts']['y'])
+        data['x_end'] = np.asarray(points_data['end']['extracts']['x'])
+        data['y_end'] = np.asarray(points_data['end']['extracts']['y'])
 
         clusters = {}
-        clusters['x_start'] = points_data['start']['clusters']['x']
-        clusters['y_start'] = points_data['start']['clusters']['y']
-        clusters['x_end'] = points_data['end']['clusters']['x']
-        clusters['y_end'] = points_data['end']['clusters']['y']
+        clusters['x_start'] = np.asarray(points_data['start']['clusters']['x'])
+        clusters['y_start'] = np.asarray(points_data['start']['clusters']['y'])
+        clusters['x_end'] = np.asarray(points_data['end']['clusters']['x'])
+        clusters['y_end'] = np.asarray(points_data['end']['clusters']['y'])
 
-        clusters['prob_start'] = points_data['start']['extracts']['cluster_probabilities']
-        clusters['prob_end'] = points_data['start']['extracts']['cluster_probabilities']
-        clusters['labels_start'] = points_data['start']['extracts']['cluster_labels']
-        clusters['labels_end'] = points_data['start']['extracts']['cluster_labels']
+        clusters['prob_start'] = np.asarray(points_data['start']['extracts']['cluster_probabilities'])
+        clusters['prob_end'] = np.asarray(points_data['start']['extracts']['cluster_probabilities'])
+        clusters['labels_start'] = np.asarray(points_data['start']['extracts']['cluster_labels'])
+        clusters['labels_end'] = np.asarray(points_data['start']['extracts']['cluster_labels'])
 
         return data, clusters
 
@@ -364,11 +365,15 @@ class Aggregator:
         data = {}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> finalized JSON data input for aggregator
         data['x'] = np.asarray(box_data['box']['extracts']['x'])
         data['y'] = np.asarray(box_data['box']['extracts']['y'])
         data['w'] = np.asarray(box_data['box']['extracts']['width'])
         data['h'] = np.asarray(box_data['box']['extracts']['height'])
         data['a'] = np.asarray(box_data['box']['extracts']['angle'])
+<<<<<<< HEAD
 
         clusters = {}
 
@@ -391,16 +396,23 @@ class Aggregator:
         data['w'] = box_data['box']['extracts']['width']
         data['h'] = box_data['box']['extracts']['height']
         data['a'] = box_data['box']['extracts']['angle']
+=======
+>>>>>>> finalized JSON data input for aggregator
 
         clusters = {}
-        clusters['x'] = box_data['box']['clusters']['x']
-        clusters['y'] = box_data['box']['clusters']['y']
-        clusters['w'] = box_data['box']['clusters']['width']
-        clusters['h'] = box_data['box']['clusters']['height']
-        clusters['a'] = box_data['box']['clusters']['angle']
-        
-        clusters['sigma'] = box_data['box']['clusters']['sigma']
-        clusters['labels'] = box_data['box']['extracts']['cluster_labels']
+
+        try:
+            clusters['x'] = np.asarray(box_data['box']['clusters']['x'])
+            clusters['y'] = np.asarray(box_data['box']['clusters']['y'])
+            clusters['w'] = np.asarray(box_data['box']['clusters']['width'])
+            clusters['h'] = np.asarray(box_data['box']['clusters']['height'])
+            clusters['a'] = np.asarray(box_data['box']['clusters']['angle'])
+            
+            clusters['sigma'] = np.asarray(box_data['box']['clusters']['sigma'])
+        except Exception:
+            for key in ['x', 'y', 'w', 'h', 'a', 'sigma']:
+                clusters[key] = np.asarray([])
+        clusters['labels'] = np.asarray(box_data['box']['extracts']['cluster_labels'])
         try:
 >>>>>>> added box data parsing to aggregator
             clusters['prob'] = box_data['box']['extracts']['cluster_probabilities']
