@@ -452,6 +452,7 @@ class SOL:
 
         while len(indices) > 0:
             ind = indices[0]
+            # this is the jet we will compare against
 
             # find all the jets that fall within a distance
             # eps for this jet and those that are not
@@ -597,10 +598,10 @@ class JetCluster:
 
         # save the animation as a gif
         ani = animation.ArtistAnimation(fig, ims)
-        ani.save(output, writer='ffmpeg')
+        ani.save(output, writer='imagemagick')
         plt.close('all')
-
-    def json_export(self, output):
+        
+    def json_export(self,output):
         '''
             export one single jet cluster to output.json file
             Inputs
