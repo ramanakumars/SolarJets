@@ -479,7 +479,6 @@ class SOL:
             if len(unique_subs) != sum(mask):
                 # in this case, there are duplicates
                 # we will choose the best subject from each duplicate
-
                 # loop through the unique subs
                 for sub in unique_subs:
                     # find the indices that correspond to this
@@ -613,8 +612,9 @@ class JetCluster:
         # save the animation as a gif
         ani = animation.ArtistAnimation(fig, ims)
         ani.save(output, writer='imagemagick')
-
-    def json_export(self, output):
+        plt.close('all')
+        
+    def json_export(self,output):
         '''
             export one single jet cluster to output.json file
             Inputs
