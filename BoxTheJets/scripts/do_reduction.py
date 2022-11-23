@@ -42,47 +42,46 @@ def _do_reduction(box_data_sub, point_data_sub, subject):
      
     # do the reduction
     box_reduction = shape_reducer_dbscan(ext_data, metric_type='IoU',
-                               shape='rotateRectangle', user_id=False, 
+                               shape='rotateRectangle', user_id=False,
                                allow_single_cluster=True, min_samples=2,
-                                min_cluster_size=2, eps=0.5)
-
-    if 'frame0' not in box_reduction.keys():
-        print(ext_data)
-        print(box_reduction)
+                               min_cluster_size=2, eps=0.5)
 
     box_out = {}
-    box_out['clusters'] = []
-    labels = np.asarray(box_reduction['frame0']['T1_tool2_cluster_labels'])
+    box_out['extracts'] = defaultdict(list,
+                                      {key : [] for key in
+                                       ['x', 'y', 'width', 'height', 'angle','frame', 'cluster_labels']})
+    box_out['clusters'] = defaultdict(list, 
+                                      {key : [] for key in
+                                       ['x', 'y', 'width', 'height', 'angle', 'sigma']})
+    if 'frame0' in box_reduction.keys():
+        labels = np.asarray(box_reduction['frame0']['T1_tool2_cluster_labels'])
 
-    # check if clusters were found
-    if 'T1_tool2_clusters_x' in box_reduction['frame0']:
-        # if they were, then we load each cluster individually
-        nclusters = len(box_reduction['frame0']['T1_tool2_clusters_x'])
+        # check if clusters were found
+        if 'T1_tool2_clusters_x' in box_reduction['frame0']:
+            # if they were, then we load each cluster individually
+            nclusters = len(box_reduction['frame0']['T1_tool2_clusters_x'])
 
-        box_out['clusters'] = defaultdict(list)
 
-        # load in individual keys for the box properties
-        for key in ['x', 'y', 'width', 'height', 'angle', 'sigma']: 
-            for cluster in range(nclusters):
-                box_out['clusters'][key].append(box_reduction['frame0'][f'T1_tool2_clusters_{key}'][cluster])
+            # load in individual keys for the box properties
+            for key in ['x', 'y', 'width', 'height', 'angle', 'sigma']: 
+                for cluster in range(nclusters):
+                    box_out['clusters'][key].append(box_reduction['frame0'][f'T1_tool2_clusters_{key}'][cluster])
+                
+        # also save the extracts
+        ext_new = defaultdict(list)
+        for key in ['x', 'y', 'width', 'height', 'angle','frame']: 
+            key_data = []
+            for exti in ext_data:
+                key_data.extend(exti['frame0'][f'T1_tool2_{key}'])
             
-    
-    # also save the extracts
-    box_out['extracts'] = []
-    ext_new = defaultdict(list)
-    for key in ['x', 'y', 'width', 'height', 'angle','frame']: 
-        key_data = []
-        for exti in ext_data:
-            key_data.extend(exti['frame0'][f'T1_tool2_{key}'])
+            ext_new[key] = key_data
+        # and their corresponding cluster properties 
+        # (i.e. which cluster they belong to)
+        ext_new['cluster_labels'] = labels.tolist()
         
-        ext_new[key] = key_data
-    # and their corresponding cluster properties 
-    # (i.e. which cluster they belong to)
-    ext_new['cluster_labels'] = labels.tolist()
-        
-    # revert to a normal dict structure rather than
-    # the defaultdict
-    box_out['extracts'] = dict(ext_new)
+        # revert to a normal dict structure rather than
+        # the defaultdict
+        box_out['extracts'] = dict(ext_new)
     
     # do the same for the points
     ext_data = []
@@ -106,45 +105,57 @@ def _do_reduction(box_data_sub, point_data_sub, subject):
     points_out = {}
     points_out['start'] = {}
     points_out['end'] = {}
+    points_out['start']['extracts'] = defaultdict(list,
+                                      {key : [] for key in
+                                       ['x', 'y', 'frame', 'cluster_labels', 'cluster_probabilities']})
+    points_out['start']['clusters'] = defaultdict(list,
+                                      {key : [] for key in
+                                       ['x', 'y']})
+    points_out['end']['extracts'] = defaultdict(list,
+                                      {key : [] for key in
+                                       ['x', 'y', 'frame', 'cluster_labels', 'cluster_probabilities']})
+    points_out['end']['clusters'] = defaultdict(list,
+                                      {key : [] for key in
+                                       ['x', 'y']})
+    if 'frame0' in point_reduction.keys():
+        out_key = {'tool0': 'start', 'tool1': 'end'}
 
-    out_key = {'tool0': 'start', 'tool1': 'end'}
+        for tool in ['tool0', 'tool1']:
+            out_keyi = out_key[tool]
+            points_out[out_keyi]['clusters'] = []
+            labels = np.asarray(point_reduction['frame0'][f'T1_{tool}_cluster_labels'])
+            probs = np.asarray(point_reduction['frame0'][f'T1_{tool}_cluster_probabilities'])
 
-    for tool in ['tool0', 'tool1']:
-        out_keyi = out_key[tool]
-        points_out[out_keyi]['clusters'] = []
-        labels = np.asarray(point_reduction['frame0'][f'T1_{tool}_cluster_labels'])
-        probs = np.asarray(point_reduction['frame0'][f'T1_{tool}_cluster_probabilities'])
+            # check if clusters were found
+            if f'T1_{tool}_clusters_x' in point_reduction['frame0']:
+                # if they were, then we load each cluster individually
+                nclusters = len(point_reduction['frame0'][f'T1_{tool}_clusters_x'])
 
-        # check if clusters were found
-        if f'T1_{tool}_clusters_x' in point_reduction['frame0']:
-            # if they were, then we load each cluster individually
-            nclusters = len(point_reduction['frame0'][f'T1_{tool}_clusters_x'])
+                points_out[out_keyi]['clusters'] = defaultdict(list)
+                for cluster in range(nclusters):
+                    # load in individual keys for the box properties
+                    for key in ['x', 'y']: 
+                        points_out[out_keyi]\
+                            ['clusters'][key].append(\
+                                point_reduction['frame0'][f'T1_{tool}_clusters_{key}'][cluster])
 
-            points_out[out_keyi]['clusters'] = defaultdict(list)
-            for cluster in range(nclusters):
-                # load in individual keys for the box properties
-                for key in ['x', 'y']: 
-                    points_out[out_keyi]\
-                        ['clusters'][key].append(\
-                            point_reduction['frame0'][f'T1_{tool}_clusters_{key}'][cluster])
-
-        # also save the extracts
-        points_out[out_keyi]['extracts'] = []
-        ext_new = defaultdict(list)
-        for key in ['x', 'y', 'frame']: 
-            key_data = []
-            for exti in ext_data:
-                key_data.extend(exti['frame0'][f'T1_{tool}_{key}'])
+            # also save the extracts
+            points_out[out_keyi]['extracts'] = []
+            ext_new = defaultdict(list)
+            for key in ['x', 'y', 'frame']: 
+                key_data = []
+                for exti in ext_data:
+                    key_data.extend(exti['frame0'][f'T1_{tool}_{key}'])
+                
+                ext_new[key] = key_data
+            # and their corresponding cluster properties 
+            # (i.e. which cluster they belong to)
+            ext_new['cluster_labels'] = labels.tolist()
+            ext_new['cluster_probabilities'] = probs.tolist()
             
-            ext_new[key] = key_data
-        # and their corresponding cluster properties 
-        # (i.e. which cluster they belong to)
-        ext_new['cluster_labels'] = labels.tolist()
-        ext_new['cluster_probabilities'] = probs.tolist()
-        
-        # revert to a normal dict structure rather than
-        # the defaultdict
-        points_out[out_keyi]['extracts'] = dict(ext_new)
+            # revert to a normal dict structure rather than
+            # the defaultdict
+            points_out[out_keyi]['extracts'] = dict(ext_new)
 
     # combine all these data sources into one big dict
     out_row = {}
@@ -198,8 +209,7 @@ if __name__=='__main__':
             mask = np.where((data_frame0 != 'N/A')&(data_frame1 != 'N/A'))[0]
             point_rows = point_data_sub[mask]
 
-            if (len(box_rows) > 0)&(len(point_rows) > 0):
-                inpargs.append([box_rows, point_rows, subject])
+            inpargs.append([box_rows, point_rows, subject])
 
         try:
             # run this through the multiprocessing pipeline
