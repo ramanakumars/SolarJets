@@ -442,9 +442,6 @@ class SOL:
         distance_metric = point_metric / np.percentile(point_metric[np.isfinite(point_metric) & (point_metric > 0)], 99) + \
             2. * box_metric
 
-        distance_metric = point_metric / np.percentile(point_metric[np.isfinite(point_metric) & (point_metric > 0)], 90) + \
-            2. * box_metric
-
         distance_metric[~np.isfinite(distance_metric)] = np.nan
 
         indices = np.arange(len(jets))
