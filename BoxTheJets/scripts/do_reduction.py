@@ -43,8 +43,8 @@ def _do_reduction(box_data_sub, point_data_sub, subject):
     # do the reduction
     box_reduction = shape_reducer_dbscan(ext_data, metric_type='IoU',
                                shape='rotateRectangle', user_id=False,
-                               allow_single_cluster=True, min_samples=2,
-                               min_cluster_size=2, eps=0.5)
+                               allow_single_cluster=True, min_samples=3,
+                               min_cluster_size=3, eps=0.5)
 
     box_out = {}
     box_out['extracts'] = defaultdict(list,
@@ -100,8 +100,8 @@ def _do_reduction(box_data_sub, point_data_sub, subject):
      
     # do the reduction
     point_reduction = point_reducer_hdbscan(ext_data, user_id=False, 
-                               allow_single_cluster=True, min_samples=2,
-                                min_cluster_size=2)
+                               allow_single_cluster=True, min_samples=3,
+                                min_cluster_size=3)
     points_out = {}
     points_out['start'] = {}
     points_out['end'] = {}
