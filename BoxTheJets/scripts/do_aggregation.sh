@@ -49,3 +49,7 @@ panoptes_aggregation reduce ../extracts/shape_extractor_rotateRectangle_box_the_
 
 panoptes_aggregation reduce ../extracts/question_extractor_box_the_jets.csv\
     ../configs/Reducer_config_workflow_19650_V4.52_question_extractor.yaml -o box_the_jets
+
+
+cd ..
+python3 scripts/make_T3_csvfiles.py;

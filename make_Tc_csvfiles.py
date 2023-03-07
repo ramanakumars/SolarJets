@@ -1,12 +1,10 @@
 import os 
-#os.chdir('JetOrNot/')
-#print(os.getcwd())
-from aggregation import QuestionResult 
+from JetOrNot.aggregation import QuestionResult 
 from astropy.io import ascii
 import numpy as np
 
 #Make the csv files 
-data_T0 = ascii.read('JetOrNot/question_reducer_jet_or_not.csv',format='csv')
+data_T0 = ascii.read('JetOrNot/reductions/question_reducer_jet_or_not.csv',format='csv')
 
 #os.chdir('..')
 

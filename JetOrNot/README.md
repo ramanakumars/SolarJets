@@ -29,7 +29,7 @@ panoptes workflow download-classifications -g 18563 jet-or-not-classifications.c
 ```
 
 ### Doing the extraction and reduction of the classification data
-Open a terminal in the `JetOrNot` directory and make sure that `panoptes_aggregation` is installed (check [https://github.com/ramanakumars/SolarJets/blob/main/README.md](this README) for more details). Then, we will create the extractor and reducer configurations for the panoptes aggregation module by running:
+Open a terminal in the `JetOrNot` directory and make sure that `panoptes_aggregation` is installed (check [this README](https://github.com/ramanakumars/SolarJets/blob/main/README.md) for more details). Then, we will create the extractor and reducer configurations for the panoptes aggregation module by running:
 
 ```bash
 panoptes_aggregation config ../solar-jet-hunter-workflows.csv 18563

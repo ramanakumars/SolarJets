@@ -1,10 +1,10 @@
 # requirements for the Solar Jet Hunter zooniverse project
-numpy==1.20.0
+numpy
 scipy
 matplotlib
 astropy
 scikit-image
 scikit-learn
-panoptes_aggregation
+panoptes_aggregation>=3.7.0
 panoptes-client
 shapely
