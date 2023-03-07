@@ -450,16 +450,8 @@ class SOL:
                     box_metric[k, j] = 1. - box_ious
 
                     # we will limit to 2 frames (each frame is 5 min)
-<<<<<<< HEAD
                     time_metric[k, j] = np.abs((times[j] - times[k]).astype('timedelta64[s]')
                                                .astype(float))
-=======
-                    time_metric[k,j]  = np.abs( (times[j] - times[k]).astype('timedelta64[s]')\
-                                               .astype(float))
-
-        distance_metric = point_metric/np.percentile(point_metric[np.isfinite(point_metric)&(point_metric>0)], 99) + \
-                            2.*box_metric
->>>>>>> 1f82d64567efe0bcbc43bfebca3a1dede6259352
 
         distance_metric = point_metric / np.percentile(point_metric[np.isfinite(point_metric) & (point_metric > 0)], 99) + \
             2. * box_metric
@@ -474,10 +466,6 @@ class SOL:
 
         while len(indices) > 0:
             ind = indices[0]
-<<<<<<< HEAD
-=======
-            # this is the jet we will compare against
->>>>>>> 1f82d64567efe0bcbc43bfebca3a1dede6259352
 
             # find all the jets that fall within a distance
             # eps for this jet and those that are not
@@ -625,13 +613,8 @@ class JetCluster:
         ani = animation.ArtistAnimation(fig, ims)
         ani.save(output, writer='ffmpeg')
         plt.close('all')
-<<<<<<< HEAD
 
     def json_export(self, output):
-=======
-        
-    def json_export(self,output):
->>>>>>> 1f82d64567efe0bcbc43bfebca3a1dede6259352
         '''
             export one single jet cluster to output.json file
             Inputs
