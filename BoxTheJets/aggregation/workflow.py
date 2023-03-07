@@ -328,9 +328,9 @@ class Aggregator:
         clusters['y_end'] = np.asarray(points_data['end']['clusters']['y'])
 
         clusters['prob_start'] = np.asarray(points_data['start']['extracts']['cluster_probabilities'])
-        clusters['prob_end'] = np.asarray(points_data['start']['extracts']['cluster_probabilities'])
+        clusters['prob_end'] = np.asarray(points_data['end']['extracts']['cluster_probabilities'])
         clusters['labels_start'] = np.asarray(points_data['start']['extracts']['cluster_labels'])
-        clusters['labels_end'] = np.asarray(points_data['start']['extracts']['cluster_labels'])
+        clusters['labels_end'] = np.asarray(points_data['end']['extracts']['cluster_labels'])
 
         return data, clusters
 

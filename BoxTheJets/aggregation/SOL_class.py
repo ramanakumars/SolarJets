@@ -436,8 +436,11 @@ class SOL:
                     box_metric[k, j] = 1. - box_ious
 
                     # we will limit to 2 frames (each frame is 5 min)
-                    time_metric[k, j] = np.abs((times[j] - times[k]).astype('timedelta64[s]')
+                    time_metric[k,j]  = np.abs( (times[j] - times[k]).astype('timedelta64[s]')\
                                                .astype(float))
+
+        distance_metric = point_metric/np.percentile(point_metric[np.isfinite(point_metric)&(point_metric>0)], 99) + \
+                            2.*box_metric
 
         distance_metric = point_metric / np.percentile(point_metric[np.isfinite(point_metric) & (point_metric > 0)], 99) + \
             2. * box_metric
@@ -570,11 +573,11 @@ class JetCluster:
             output: str
                 name of the exported gif
         '''
-        fig, ax = plt.subplots(1, 1, dpi=150)
-
+        fig, ax = plt.subplots(1,1, dpi=150)
+        
         # create a temp plot so that we can get a size estimate
         subject0 = self.jets[0].subject
-
+        
         im1 = ax.imshow(get_subject_image(subject0, 0))
         ax.axis('off')
         fig.tight_layout(pad=0)
@@ -598,7 +601,7 @@ class JetCluster:
 
         # save the animation as a gif
         ani = animation.ArtistAnimation(fig, ims)
-        ani.save(output, writer='imagemagick')
+        ani.save(output, writer='ffmpeg')
         plt.close('all')
         
     def json_export(self,output):
