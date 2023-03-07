@@ -437,7 +437,10 @@ class SOL:
 
                     # we will limit to 2 frames (each frame is 5 min)
                     time_metric[k, j] = np.abs((times[j] - times[k]).astype('timedelta64[s]')
-                                               .astype(float)) / (5 * 60 + 12)
+                                               .astype(float))
+
+        distance_metric = point_metric / np.percentile(point_metric[np.isfinite(point_metric) & (point_metric > 0)], 99) + \
+            2. * box_metric
 
         distance_metric = point_metric / np.percentile(point_metric[np.isfinite(point_metric) & (point_metric > 0)], 90) + \
             2. * box_metric
@@ -448,7 +451,7 @@ class SOL:
         labels = -1. * np.ones(len(jets))
         subjects = np.asarray([jet.subject for jet in jets])
 
-        # print(f"Using eps={eps} and time_eps={time_eps*30} min")
+        print(f"Using eps={eps} and time_eps={time_eps/60} min")
 
         while len(indices) > 0:
             ind = indices[0]
@@ -538,7 +541,7 @@ class SOL:
 
             jet_clusters.append(clusteri)
 
-        return jet_clusters, distance_metric, point_metric, box_metric
+        return jet_clusters, distance_metric, point_metric, box_metric, time_metric
 
 
 class JetCluster:
@@ -569,12 +572,12 @@ class JetCluster:
             output: str
                 name of the exported gif
         '''
-        fig, ax = plt.subplots(1, 1, dpi=250)
+        fig, ax = plt.subplots(1, 1, dpi=150)
 
         # create a temp plot so that we can get a size estimate
         subject0 = self.jets[0].subject
 
-        ax.imshow(get_subject_image(subject0, 0))
+        im1 = ax.imshow(get_subject_image(subject0, 0))
         ax.axis('off')
         fig.tight_layout(pad=0)
 
@@ -597,10 +600,10 @@ class JetCluster:
 
         # save the animation as a gif
         ani = animation.ArtistAnimation(fig, ims)
-        ani.save(output, writer='imagemagick')
+        ani.save(output, writer='ffmpeg')
         plt.close('all')
-        
-    def json_export(self,output):
+
+    def json_export(self, output):
         '''
             export one single jet cluster to output.json file
             Inputs
