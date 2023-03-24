@@ -519,7 +519,7 @@ class Aggregator:
                 x_i[j], y_i[j], w_i[j], h_i[j], np.radians(a_i[j]))
             linewidthi = 0.2*pb_i[j]+0.1
             ax.plot(points[:, 0], points[:, 1], '-',
-                    color='#aaa', linewidth=linewidthi)
+                    color='limegreen', linewidth=linewidthi)
 
         # plot the clustered box in blue
         for j in range(len(cx_i)):
@@ -542,7 +542,7 @@ class Aggregator:
             ax.fill(
                 np.append(x_p, x_m[::-1]), np.append(y_p, y_m[::-1]), color='white', alpha=0.3)
 
-            ax.plot(clust[:, 0], clust[:, 1], '-', linewidth=0.5, color='blue')
+            ax.plot(clust[:, 0], clust[:, 1], '-', linewidth=0.85, color='white')
 
         ax.axis('off')
 
@@ -1095,7 +1095,10 @@ class Aggregator:
                 temp_boxes['count'].append(
                     np.sum(np.asarray(combined_boxes['labels']) == i))
                 for key in combined_boxes.keys():
-                    temp_boxes[key].append(combined_boxes[key][i])
+                    if key == 'iou':
+                        temp_boxes[key].append(combined_boxes[key][i] * temp_boxes['count'][-1])
+                    else: 
+                        temp_boxes[key].append(combined_boxes[key][i])
 
         for key in temp_boxes.keys():
             temp_boxes[key] = np.asarray(temp_boxes[key])
@@ -1156,13 +1159,13 @@ class Aggregator:
 
             for key in temp_boxes.keys():
                 # np.argmax(sum_ious)
-                best = np.argmin(temp_boxes['sigma'][merge_mask])
+                best = np.argmax(temp_boxes['iou'][merge_mask])
                 clust_boxes[key].append(temp_boxes[key][merge_mask][best])
 
             if plot:
                 fig, ax = plt.subplots(1, 1, dpi=150)
                 ax.imshow(get_subject_image(subject))
-                ax.plot(*box0.exterior.xy, 'b-')
+                # ax.plot(*box0.exterior.xy, '-', color='k')
                 for j in range(1, nboxes):
                     bj = temp_boxes['box'][j]
                     if merge_mask[j]:
@@ -1170,9 +1173,9 @@ class Aggregator:
                     else:
                         ax.plot(*bj.exterior.xy, 'k-', linewidth=0.5)
                 for j in range(nboxes):
-                    bj = temp_boxes['box'][j]
-                    ax.text(bj.exterior.xy[0][0], bj.exterior.xy[1][0], round(
-                        temp_boxes['sigma'][j], 2), fontsize=10)
+                    #ax.text((bj.exterior.xy[0][0] + bj.exterior.xy[0][1])/2.,
+                    #        (bj.exterior.xy[1][0] + bj.exterior.xy[1][1])/2.,
+                    #        f'IoU = {temp_boxes["iou"][j]:.1f}', fontsize=10)
 
                     # calculate the bounding box for the cluster confidence
                     plus_sigma, minus_sigma = sigma_shape(
@@ -1196,6 +1199,7 @@ class Aggregator:
                         x_p, x_m[::-1]), np.append(y_p, y_m[::-1]), color='white', alpha=0.25)
 
                 ax.axis('off')
+                plt.tight_layout()
                 plt.show()
 
             # and remove all the overlapping boxes from the list
@@ -1551,6 +1555,7 @@ class Aggregator:
                 jet.plot(ax)
 
             ax.axis('off')
+            plt.tight_layout()
             plt.show()
 
         return jets
@@ -1659,10 +1664,9 @@ class Jet:
             ims : list
                 list of `matplotlib.Artist` objects that was created for this plot
         '''
-        boxplot, = ax.plot(*self.box.exterior.xy, 'b-',
+        boxplot, = ax.plot(*self.box.exterior.xy, '-', color='white',
                              linewidth=0.8, zorder=10)
-        startplot, = ax.plot(*self.start, color='limegreen',
-                             marker='x', markersize=2, zorder=10)
+        startplot, = ax.plot(*self.start, 'bx', markersize=2, zorder=10)
         endplot, = ax.plot(*self.end, 'rx', markersize=2, zorder=10)
 
         start_ext = self.get_extract_starts()
@@ -1677,7 +1681,7 @@ class Jet:
         for box in self.get_extract_boxes():
             iou = box.intersection(self.box).area/box.union(self.box).area
             boxextplots.append(
-                ax.plot(*box.exterior.xy, 'k-', linewidth=0.5, alpha=0.65*iou+0.05)[0])
+                ax.plot(*box.exterior.xy, '-', color='limegreen', linewidth=0.5, alpha=0.65*iou+0.05)[0])
 
         # find the center of the box, so we can draw a vector through it
         center = np.mean(np.asarray(self.box.exterior.xy)[:, :4], axis=1)
