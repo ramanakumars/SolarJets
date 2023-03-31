@@ -1,4 +1,5 @@
 import numpy
+import json
 
 import astropy.units as u
 
@@ -27,14 +28,32 @@ def world_from_pixel(subject_id, x, y):
         x = x / metadata['#width']
         y = y / metadata['#height']
 
-    #Create an empty map
-    '''
-    Note:
-    At the moment, this will only for subjects with .fts headers included in their metadata.
-    Subject sets without this metadata information will not work with this version of the code.
-    '''
-    map = Map(numpy.zeros((1,1)), metadata['#fits_header_0'])
 
+    #Extract metadata from subject sets with .fts headers included in their metadata.
+    try:
+        #Get the dictionary, which is currently formatted as a string
+        fits_data = metadata['#fits_header_0']
+        #Convert the dictionary/string into a normal dictionary
+        fits_headers = json.loads(fits_data)
+
+    #If the above doesn't work, then we try to collect the fits_headers directly from the metadata
+    except KeyError:
+        fits_headers = {
+            'naxis1': metadata['#naxis1'], #Pixels along axis 1
+            'naxis2': metadata['#naxis2'], #Pixels along axis 2
+            'cunit1': metadata['#cunit1'], #Units of the coordinate increments along naxis1 e.g. arcsec
+            'cunit2': metadata['#cunit2'], #Units of the coordinate increments along naxis2 e.g. arcsec
+            'crval1': metadata['#crval1'], #Coordinate value at reference point on naxis1
+            'crval2': metadata['#crval2'], #Coordinate value at reference point on naxis2
+            'cdelt1': metadata['#cdelt1'], #Spatial scale of pixels for naxis1, i.e. coordinate increment at reference point
+            'cdelt2': metadata['#cdelt1'], #Spatial scale of pixels for naxis2, i.e. coordinate increment at reference point
+            'crpix1': metadata['#crpix1'], #Pixel coordinate at reference point naxis1
+            'crpix2': metadata['#crpix1'], #Pixel coordinate at reference point naxis2
+            'crota2': metadata['#crota2'], #Rotation of the horizontal and vertical axes in degrees
+        }
+
+    #Create an empty map
+    map = Map(numpy.zeros((1,1)), fits_headers)
 
     #extract important pieces of metadata
     fits_width = map.meta["naxis1"]
