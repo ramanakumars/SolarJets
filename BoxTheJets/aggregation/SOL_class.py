@@ -442,7 +442,7 @@ class SOL:
                     box_metric[k, j] = np.nan
                     time_metric[k, j] = np.nan
                 else:
-                    point_dist = np.linalg.norm((jetj.start - jetk.start))
+                    point_dist = np.linalg.norm((jetj.start - jetk.start)) + np.linalg.norm((jetj.end - jetk.end))
                     box_ious = jetj.box.intersection(
                         jetk.box).area / jetj.box.union(jetk.box).area
                     point_metric[k, j] = point_dist / \
