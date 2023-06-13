@@ -42,12 +42,12 @@ def get_box_edges(x, y, w, h, a):
         corners : numpy.ndarray
             Length 4 array with coordinates of the box edges
     '''
-    cx = (2*x+w)/2
-    cy = (2*y+h)/2
+    cx = (2 * x + w) / 2
+    cy = (2 * y + h) / 2
     centre = np.array([cx, cy])
     original_points = np.array(
         [
-            [cx - 0.5 * w, cy - 0.5 * h], # This would be the box if theta = 0
+            [cx - 0.5 * w, cy - 0.5 * h],  # This would be the box if theta = 0
             [cx + 0.5 * w, cy - 0.5 * h],
             [cx + 0.5 * w, cy + 0.5 * h],
             [cx - 0.5 * w, cy + 0.5 * h],
@@ -114,7 +114,7 @@ def get_point_distance(x0, y0, x1, y1):
         dist : float
             Euclidian distance between (x0, y0) and (x1, y1)
     '''
-    return np.sqrt((x0-x1)**2. + (y0-y1)**2.)
+    return np.sqrt((x0 - x1)**2. + (y0 - y1)**2.)
 
 
 def get_box_distance(box1, box2):
@@ -354,7 +354,7 @@ class Aggregator:
                 Cluster shape (x, y, width, height and angle) and probabilities and labels of the
                 data points
         '''
-        
+
         box_data = list(filter(lambda e: e['subject_id'] == subject, self.reductions_data))
 
         assert len(box_data) == 1, f"Found {len(box_data)} matching reductions for box data!"
@@ -364,16 +364,11 @@ class Aggregator:
 
         data = {}
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> finalized JSON data input for aggregator
         data['x'] = np.asarray(box_data['box']['extracts']['x'])
         data['y'] = np.asarray(box_data['box']['extracts']['y'])
         data['w'] = np.asarray(box_data['box']['extracts']['width'])
         data['h'] = np.asarray(box_data['box']['extracts']['height'])
         data['a'] = np.asarray(box_data['box']['extracts']['angle'])
-<<<<<<< HEAD
 
         clusters = {}
 
@@ -390,31 +385,6 @@ class Aggregator:
                 clusters[key] = np.asarray([])
         clusters['labels'] = np.asarray(box_data['box']['extracts']['cluster_labels'])
         try:
-=======
-        data['x'] = box_data['box']['extracts']['x']
-        data['y'] = box_data['box']['extracts']['y']
-        data['w'] = box_data['box']['extracts']['width']
-        data['h'] = box_data['box']['extracts']['height']
-        data['a'] = box_data['box']['extracts']['angle']
-=======
->>>>>>> finalized JSON data input for aggregator
-
-        clusters = {}
-
-        try:
-            clusters['x'] = np.asarray(box_data['box']['clusters']['x'])
-            clusters['y'] = np.asarray(box_data['box']['clusters']['y'])
-            clusters['w'] = np.asarray(box_data['box']['clusters']['width'])
-            clusters['h'] = np.asarray(box_data['box']['clusters']['height'])
-            clusters['a'] = np.asarray(box_data['box']['clusters']['angle'])
-            
-            clusters['sigma'] = np.asarray(box_data['box']['clusters']['sigma'])
-        except Exception:
-            for key in ['x', 'y', 'w', 'h', 'a', 'sigma']:
-                clusters[key] = np.asarray([])
-        clusters['labels'] = np.asarray(box_data['box']['extracts']['cluster_labels'])
-        try:
->>>>>>> added box data parsing to aggregator
             clusters['prob'] = box_data['box']['extracts']['cluster_probabilities']
         except KeyError:
             # OPTICS cluster doesn't have probabilities
@@ -432,9 +402,9 @@ class Aggregator:
                                                        np.radians(clusters['a'][labeli]))[:4])
 
                     probs[i] = boxi_data.intersection(
-                        boxi_clust).area/boxi_data.union(boxi_clust).area
+                        boxi_clust).area / boxi_data.union(boxi_clust).area
             clusters['prob'] = probs
-        
+
         return data, clusters
 
     def plot_subject_both(self, subject):
@@ -513,11 +483,11 @@ class Aggregator:
         ax.imshow(img)
 
         # plot the raw classifications using a .
-        alphai = np.asarray(p0_i)*0.5 + 0.5
+        alphai = np.asarray(p0_i) * 0.5 + 0.5
         ax.scatter(x0_i, y0_i, 5.0, marker='.', color='blue', alpha=alphai)
 
         # and the end points with a yellow .
-        alphai = np.asarray(p1_i)*0.5 + 0.5
+        alphai = np.asarray(p1_i) * 0.5 + 0.5
         ax.scatter(x1_i, y1_i, 5.0, marker='.', color='yellow', alpha=alphai)
 
         # plot the clustered start/end with an x
@@ -528,7 +498,7 @@ class Aggregator:
         for j in range(len(x_i)):
             points = get_box_edges(
                 x_i[j], y_i[j], w_i[j], h_i[j], np.radians(a_i[j]))
-            linewidthi = 0.2*pb_i[j]+0.1
+            linewidthi = 0.2 * pb_i[j] + 0.1
             ax.plot(points[:, 0], points[:, 1], '-',
                     color='limegreen', linewidth=linewidthi)
 
@@ -595,7 +565,7 @@ class Aggregator:
 
         for i, subject in enumerate(subjects):
             print("\r [%-20s] %d/%d" %
-                  (int(i/len(subjects)*20)*'=', i+1, len(subjects)), end='')
+                  (int(i / len(subjects) * 20) * '=', i + 1, len(subjects)), end='')
 
             # find the list of classifications for this subject
             subject_classifications = self.classification_data[:][
@@ -1014,7 +984,7 @@ class Aggregator:
             for j in range(len(xi)):
                 bj = Polygon(get_box_edges(
                     xi[j], yi[j], wi[j], hi[j], np.radians(ai[j]))[:4])
-                ious[j] = cb.intersection(bj).area/cb.union(bj).area
+                ious[j] = cb.intersection(bj).area / cb.union(bj).area
 
             # average all the IoUs for a cluster
             box_iou[i] = np.mean(ious)
@@ -1116,7 +1086,7 @@ class Aggregator:
 
         # we are going to sort by the IoU of each box
         # so that the best boxes are processed first
-        sort_mask = np.argsort(temp_boxes['iou']*temp_boxes['count'])[::-1]
+        sort_mask = np.argsort(temp_boxes['iou'] * temp_boxes['count'])[::-1]
         for key in temp_boxes.keys():
             temp_boxes[key] = temp_boxes[key][sort_mask]
         # temp_clust_boxes = temp_clust_boxes[sort_mask]
@@ -1135,13 +1105,13 @@ class Aggregator:
 
             # to see if box0 needs to be merged with another
             # box
-            merge_mask = [False]*nboxes
+            merge_mask = [False] * nboxes
             merge_mask[0] = True
 
             for j in range(1, nboxes):
                 # find IoU for box0 vs boxj
                 bj = temp_boxes['box'][j]
-                ious[j] = box0.intersection(bj).area/box0.union(bj).area
+                ious[j] = box0.intersection(bj).area / box0.union(bj).area
 
                 # if the IoU is better than the worst IoU of the classifications
                 # for either box, then we should merge these two
@@ -1292,7 +1262,7 @@ class Aggregator:
             dists = np.zeros(npoints)
 
             # to see if start0 needs to be merged with another point
-            merge_mask = [False]*npoints
+            merge_mask = [False] * npoints
 
             # we will always remove this first point from the queue
             merge_mask[0] = True
@@ -1305,7 +1275,7 @@ class Aggregator:
                 # if the distance is better than the 1.5x the mean distance of
                 # point that make up this cluster, then we should merge these two
                 # this metric could be changed to be more robust in the future
-                if dists[j] < 1.5*np.max([temp_start_dists[0], temp_start_dists[j]]):
+                if dists[j] < 1.5 * np.max([temp_start_dists[0], temp_start_dists[j]]):
                     merge_mask[j] = True
 
             # add the point with the most compact intra-cluster distance to the cluster list
@@ -1316,13 +1286,13 @@ class Aggregator:
                 fig, ax = plt.subplots(1, 1, dpi=150)
                 ax.imshow(get_subject_image(subject))
 
-                cir = Point(*start0).buffer(1.5*temp_start_dists[0])
+                cir = Point(*start0).buffer(1.5 * temp_start_dists[0])
                 ax.plot(*start0, 'bx')
                 ax.plot(*cir.exterior.xy, 'k-', linewidth=0.5)
                 for j in range(1, npoints):
                     pointj = temp_clust_starts[j]
                     ax.plot(*pointj, 'kx')
-                    cir = Point(*pointj).buffer(1.5*temp_start_dists[j])
+                    cir = Point(*pointj).buffer(1.5 * temp_start_dists[j])
                     ax.plot(*cir.exterior.xy, 'k-', linewidth=0.5)
                 ax.axis('off')
                 plt.show()
@@ -1345,7 +1315,7 @@ class Aggregator:
             dists = np.zeros(npoints)
 
             # to see if end0 needs to be merged with another point
-            merge_mask = [False]*npoints
+            merge_mask = [False] * npoints
 
             # we will always remove this first point from the queue
             merge_mask[0] = True
@@ -1358,7 +1328,7 @@ class Aggregator:
                 # if the distance is better than the 1.5x the mean distance of
                 # point that make up this cluster, then we should merge these two
                 # this metric could be changed to be more robust in the future
-                if dists[j] < 1.5*np.max([temp_end_dists[0], temp_end_dists[j]]):
+                if dists[j] < 1.5 * np.max([temp_end_dists[0], temp_end_dists[j]]):
                     merge_mask[j] = True
 
             # add the point with the most compact intra-cluster distance to the cluster list
@@ -1369,13 +1339,13 @@ class Aggregator:
                 fig, ax = plt.subplots(1, 1, dpi=150)
                 ax.imshow(get_subject_image(subject))
 
-                cir = Point(*end0).buffer(1.5*temp_end_dists[0])
+                cir = Point(*end0).buffer(1.5 * temp_end_dists[0])
                 ax.plot(*end0, 'yx')
                 ax.plot(*cir.exterior.xy, 'k-', linewidth=0.5)
                 for j in range(1, npoints):
                     pointj = temp_clust_ends[j]
                     ax.plot(*pointj, 'kx')
-                    cir = Point(*pointj).buffer(1.5*temp_end_dists[j])
+                    cir = Point(*pointj).buffer(1.5 * temp_end_dists[j])
                     ax.plot(*cir.exterior.xy, 'k-', linewidth=0.5)
                 ax.axis('off')
                 plt.show()
@@ -1442,10 +1412,10 @@ class Aggregator:
             box_points = np.transpose(jeti.exterior.xy)[:4]
 
             dists = []
-            # calculate the distance between each start point 
+            # calculate the distance between each start point
             # and the box edges
             for j, point in enumerate(unique_starts):
-                disti = np.median([np.linalg.norm(point-pointi)
+                disti = np.median([np.linalg.norm(point - pointi)
                                   for pointi in box_points])
                 dists.append(disti)
 
@@ -1457,11 +1427,11 @@ class Aggregator:
             # do the same for the end points
             for j, point in enumerate(unique_ends):
                 disti = np.median([np.linalg.norm(
-                    point-pointi)*np.linalg.norm(point - best_start) for pointi in box_points])
+                    point - pointi) * np.linalg.norm(point - best_start) for pointi in box_points])
                 dists.append(disti)
 
             best_end = unique_ends[np.argmin(dists)]
-            
+
             # create the jet parameters (edge, width, height, angle)
             jet_params = [unique_jets['x'][i],
                           unique_jets['y'][i],
@@ -1491,7 +1461,7 @@ class Aggregator:
             # unique jet clusters
             ious = np.zeros(len(unique_jets['box']))
             for j, jet in enumerate(unique_jets['box']):
-                ious[j] = boxi.intersection(jet).area/boxi.union(jet).area
+                ious[j] = boxi.intersection(jet).area / boxi.union(jet).area
 
             # we're going to find the "best" cluster i.e., the one with the
             # highest IoU
@@ -1585,10 +1555,10 @@ class Jet:
         self.end_extracts = {'x': [], 'y': []}
 
         self.autorotate()
-        
-    def adding_new_attr(self, name_attr,value_attr):
+
+    def adding_new_attr(self, name_attr, value_attr):
         '''
-            Add an additional attribute of value value_attr and name name_attr to the jet object 
+            Add an additional attribute of value value_attr and name name_attr to the jet object
         '''
         setattr(self, name_attr, value_attr)
 
@@ -1667,9 +1637,10 @@ class Jet:
             ims : list
                 list of `matplotlib.Artist` objects that was created for this plot
         '''
-        boxplot, = ax.plot(*self.box.exterior.xy, '-', color='white',
-                             linewidth=0.8, zorder=10)
-        startplot, = ax.plot(*self.start, 'bx', markersize=2, zorder=10)
+        boxplot, = ax.plot(*self.box.exterior.xy, 'b-',
+                           linewidth=0.8, zorder=10)
+        startplot, = ax.plot(*self.start, color='limegreen',
+                             marker='x', markersize=2, zorder=10)
         endplot, = ax.plot(*self.end, 'rx', markersize=2, zorder=10)
 
         start_ext = self.get_extract_starts()
@@ -1682,9 +1653,9 @@ class Jet:
             end_ext[:, 0], end_ext[:, 1], 'k.', markersize=1.)
         boxextplots = []
         for box in self.get_extract_boxes():
-            iou = box.intersection(self.box).area/box.union(self.box).area
+            iou = box.intersection(self.box).area / box.union(self.box).area
             boxextplots.append(
-                ax.plot(*box.exterior.xy, '-', color='limegreen', linewidth=0.5, alpha=0.65*iou+0.05)[0])
+                ax.plot(*box.exterior.xy, 'k-', linewidth=0.5, alpha=0.65 * iou + 0.05)[0])
 
         # find the center of the box, so we can draw a vector through it
         center = np.mean(np.asarray(self.box.exterior.xy)[:, :4], axis=1)
@@ -1696,8 +1667,8 @@ class Jet:
 
         # create a vector by choosing the top of the jet and base of the jet
         # as the two points
-        point0 = center + np.matmul(rotation, np.asarray([0, self.height/2.]))
-        point1 = center + np.matmul(rotation, np.asarray([0, -self.height/2.]))
+        point0 = center + np.matmul(rotation, np.asarray([0, self.height / 2.]))
+        point1 = center + np.matmul(rotation, np.asarray([0, -self.height / 2.]))
         vec = point1 - point0
 
         base_points, height_points = self.get_width_height_pairs()
@@ -1748,7 +1719,7 @@ class Jet:
         # is in such a way that the point closest to the base
         # comes first -- this will ensure that the next point is
         # along the height line
-        if np.linalg.norm(rolled_points[0, :]-base_points[1, :]) == 0:
+        if np.linalg.norm(rolled_points[0, :] - base_points[1, :]) == 0:
             height_points = rolled_points[:2]
         else:
             height_points = rolled_points[::-1][:2]
