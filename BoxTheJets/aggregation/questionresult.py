@@ -1,9 +1,7 @@
 import numpy as np
-import datetime
 from panoptes_client import Subject
-from dateutil.parser import parse
-from astropy.io import ascii
-import csv
+import tqdm
+import json
 
 
 class QuestionResult:
@@ -11,199 +9,79 @@ class QuestionResult:
         Data class to handle all binary question answers given by the volunteers
     '''
 
-    def __init__(self, data):
+    def __init__(self, reduction_file, subject_loader=None):
         '''
             Inputs
             ------
-            path_to_csv : path to csv-file
-                    Rows contain the question_reducer_jet_or_not.csv
-                    with columns data.yes and data.no for each subject
+            reduction_data : str
+                Path to the CSV file (question_reducer_jet_or_not.csv)
+                with columns data.yes and data.no for each subject
+            subject_loader : SubjectLoader
+                An instance of the SubjectLoader object which contains
+                the subject metadata database from Zooniverse
         '''
-        try:
-            data = ascii.read(path_to_csv, format='csv')
-            data['data.yes'].fill_value = 0
-            data['data.no'].fill_value = 0
-
-        except KeyError:
-            data = ascii.read(path_to_csv, format='csv')
-            data.rename_column('data.no-there-are-no-jets-in-this-image-sequence', 'data.no')
-            data.rename_column('data.yes-there-is-at-least-one-jet-in-this-image-sequence', 'data.yes')
-            data['data.yes'].fill_value = 0
-            data['data.no'].fill_value = 0
-            self.data = data.filled()
-        
-        except Exception as error:
-            # handle the exception
-            print("An exception occurred:", error)
-            return
-
+        data = ascii.read(reduction_file, format='csv')
+        data['data.yes'].fill_value = 0
+        data['data.no'].fill_value = 0
         self.data = data.filled()
 
-    def Agr_mask(self):
+        self.subject_ids = np.asarray(data['subject_id'][:])
+
+        self.subject_loader = subject_loader
+
+        # populate the local data structures
+        self.get_agreement()
+        self.get_obs_time()
+
+    def get_agreement(self):
         '''
-        Find the agreement between the volunteers for the Jet or Not question
-        Output
-        ------
-            agreement : np.array
-                agreement between the volunteers on the subjects
-            jet_mask : np.array
-                mask for the subject that most likely contain a jet
-            non_jet_mask : np.array
-                mask for the subject that most likely do not contain a jet
-            Ans : np.array
-                the most given answer as given by the volunteers either 'y' or 'n'
+            Find the agreement between the volunteers for the Jet or Not question
         '''
         num_votes = np.asarray(self.data['data.no']) + np.asarray(self.data['data.yes'])
-        counts = np.asarray(np.dstack([self.data['data.yes'], self.data['data.no']])[0])
-        most_likely = np.argmax(counts, axis=1)
+        counts = np.dstack([self.data['data.yes'], self.data['data.no']])[0]
 
-        value_yes = most_likely == 0
-        value_no = most_likely == 1
+        # set the agreement score and consensus value for each subject
+        self.most_likely = np.argmax(counts, axis=1)
+        self.agreement = np.max(counts, axis=1) / num_votes
 
-        agreement = np.zeros_like(num_votes)
-
-        agreement[value_yes] = counts[value_yes, 0] / (num_votes[value_yes])
-        agreement[value_no] = counts[value_no, 1] / (num_votes[value_no])
-
-        agreement = np.asarray(agreement)  # The order of agreement is in the order of the subjects
-
-        jet_mask = most_likely == 0
-        jet_subjects = self.data['subject_id'][jet_mask]
-        non_jet_mask = most_likely == 1
-        non_jet_subjects = self.data['subject_id'][non_jet_mask]
-        Ans = np.zeros(len(self.data['subject_id']), dtype=str)
-        Ans[jet_mask] = 'y'
-        Ans[non_jet_mask] = 'n'
-
-        return agreement, jet_mask, non_jet_mask, Ans
-
-    def obs_time(self):
+    def get_SOL(self):
         '''
-        Connect to the Zooniverse to get the observation starting time, SOL event,
-        filenames of 1st image of the subject and the end_time of the subjects.
-        Output
-        -----
-            obs_time : np.array(dtype=str)
-                starting times of the subjects
-            SOL : np.array(dtype=str)
-                SOL/HEK event name of the subject
-            filenames : np.array(dtype=str)
-                filenames of the 1st image of the subjects
-            end_time : np.array(dtype=str)
-                time of the last image of the subject
+            Pull the Zooniverse subject metadata and build a list of SOL event IDs
+            for all the subjects loaded
         '''
+        SOL = []
 
-        obs_time = np.array([])
-        SOL = np.array([])
-        filenames = np.array([])
-        end_time = np.array([])
-
-        for i, subject in enumerate(self.data['subject_id']):
-            print("\r [%-40s] %d/%d" % (int(i / len(self.data['subject_id']) * 40) * '=', i + 1, len(self.data['subject_id'])), end='')
-            panoptes_subject = Subject(subject)
-
-            # get the obsdate from the filename (format ssw_cutout_YYYYMMDD_HHMMSS_*.png). we'll strip out the
-            # extras and just get the date in ISO format and parse it into a datetime array
-            filenames = np.append(filenames, panoptes_subject.metadata['#file_name_0'])
-            obs_datestring = panoptes_subject.metadata['#file_name_0'].split('_')[2:4]
-            obs_time = np.append(obs_time, parse(f'{obs_datestring[0]}T{obs_datestring[1]}'))
-            end_datestring = panoptes_subject.metadata['#file_name_14'].split('_')[2:4]
-            end_time = np.append(end_time, parse(f'{end_datestring[0]}T{end_datestring[1]}'))
-            SOL = np.append(SOL, panoptes_subject.metadata['#sol_standard'])
-
-        return obs_time, SOL, filenames, end_time
-
-    def count_jets(self, A, t):
-        '''
-        Get properties of the SOL event by looping over the various subjects
-        Inputs
-        ------
-        A : np.array
-            list of answers of the subjects
-        t : np.array
-            starting times of the subjects
-
-        Output
-        ------
-            tel : int
-                count of how many jet events (sequential jet subjects)
-            L : str
-                string of flagging per jet event seperated by ' '
-            start : str
-                string of starting times jet event seperated by ' '
-            end : str
-                string of end times jet event seperated by ' '
-        '''
-
-        L = ''
-        start = ''
-        end = ''
-        tel = 0
-        prev = 'n'
-        switch = 0
-        for i in range(len(A)):
-            f1 = '0'
-            f2 = '0'
-            a = A[i]
-            if prev != a:
-                if a == 'y':
-                    tel += 1
-                    start += str(t[i]) + ' '
-                    s = i  # start index
-                else:
-                    end += str(t[i]) + ' '
-                    if np.abs(t[i] - t[s]) < datetime.timedelta(minutes=6):
-                        f1 = '1'
-                switch += 1
-                prev = a
+        for i, subject in enumerate(tqdm.tqdm(self.data['subject_id'])):
+            if self.subject_loader is not None:
+                # get this from the local subject loader
+                SOL.append(self.subject_loader.get_meta(subject)['#sol_standard'])
             else:
-                switch = 0
+                # if there is no subject loader, pull from panoptes
+                panoptes_subject = Subject(subject)
+                SOL.append(panoptes_subject.metadata['#sol_standard'])
 
-            if switch > 1:  # Flagging jets where we have ynyn or nyny so jets inclosed in
-                f2 = '1'
-                switch = 0
-            if f1 + f2 != '00':
-                L = L + ' ' + f1 + f2 + ' ' + str(t[i])
+        self.SOL = np.asarray(SOL)
 
-        return tel, L, start, end
-
-    def csv_SOL(self, SOL, obs_time, Ans, agreement, jet_mask, non_jet_mask, task, filenames, end_time):
+    def export(self):
         '''
-        Make the subject and SOL csv-files
-
-        Input
-        -----
-        SOL, obs_time, Ans, agreement, jet_mask, non_jet_mask, task,filenames, end_time : str format
-        Properties of the subjects to be saved in a csv file
+            Exports the subject info and corresponding SOL data and agreement values
+            into a JSON output
         '''
 
-        open('subjects_{}.csv'.format(task), 'w')
-        start_i = 0
-        f = open('SOL_{}_stats.csv'.format(task), 'w')  # PUT in Box the jet
-        writer = csv.writer(f)
-        writer.writerow(['#SOL-event', 'subjects in event', 'filename0', 'times subjects', 'number of jet clusters', 'start event', 'end event', 'Flagged jets'])
-        SOL_small = np.array([])
-        Num = np.array([])
-        # total 122 figures SOL events
-        while start_i < len(SOL):
-            I = SOL == SOL[start_i]
-            C, N, start, end = self.count_jets(Ans[I], obs_time[I])
-            SOL_small = np.append(SOL_small, SOL[start_i])
-            Num = np.append(Num, C)
-            S = np.array(self.data['subject_id'][I], dtype=str)
-            S2 = ' '.join(S)
-            T = obs_time[I]
-            T2 = ' '.join(np.asarray(T, dtype=str))
-            F = filenames[I]
-            F2 = ' '.join(np.asarray(F, dtype=str))
-            E = end_time[I]
-            A = Ans[I]
-            Ag = agreement[I]
-            sol_event = SOL[I]
-            # Make list with all subjects
-            with open('subjects_{}.csv'.format(task), 'a') as csvfile:
-                np.savetxt(csvfile, np.column_stack((S, T, E, A, Ag, F, sol_event)), delimiter=",", newline='\n', fmt='%s')
-            ##
-            writer.writerow([SOL[start_i], S2, F2, T2, C, start, end, N])
-            start_i = np.max(np.where(I == True)) + 1
-        f.close()
+        SOL_unique, SOL_inds = np.unique(self.SOL)
+
+        SOL_data = []
+
+        for i, (SOL, inds) in enumerate(tqdm.tqdm(zip(SOL_unique, SOL_inds), total=len(SOL_unique))):
+            # fetch the corresponding data
+            subjects = self.subject_ids[inds]
+            agreements = self.agreement[inds]
+
+            SOL_data.append({
+                'SOL': SOL,
+                'subject_ids': subjects,
+                'agreements': agreements,
+            })
+
+        with open('SOL_data.json', 'w') as outfile:
+            json.dump(SOL_data, outfile)
