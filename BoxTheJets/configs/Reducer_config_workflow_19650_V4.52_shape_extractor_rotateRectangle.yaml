@@ -1,7 +1,8 @@
 reducer_config:
-    shape_reducer_hdbscan:
+    shape_reducer_dbscan:
         shape: rotateRectangle
-        min_cluster_size: 2
+        min_cluster_size: 3
         min_samples: 2
         allow_single_cluster: True
         metric_type: IoU
+        eps: 0.8

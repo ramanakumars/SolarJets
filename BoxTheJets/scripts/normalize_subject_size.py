@@ -48,7 +48,8 @@ def get_subject_scale(subject_id):
 
         # the standard size is 1920x1440 so 
         # we will scale everything else to that size
-        scale = widths/1920.
+        meta_width=float(subject.raw['metadata']['#width'])
+        scale = widths/meta_width
 
         # add this info to the table
         data = [int(subject.id), *scale]

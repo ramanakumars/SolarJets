@@ -86,7 +86,9 @@ def get_subject_image(subject, frame=7):
 
     # for subjects that have an odd size, resize them
     if img.shape[0] != 1920:
-        img = transform.resize(img, (1440, 1920))
+        meta_width=float(subjecti.raw['metadata']['#width'])
+        meta_height=float(subjecti.raw['metadata']['#height'])
+        img = transform.resize(img, (meta_height, meta_width))
 
     return img
 
