@@ -1,9 +1,11 @@
 import numpy
+import json
 
 import astropy.units as u
 
 from panoptes_client import Subject
 from sunpy.map import Map
+
 
 def solar_conversion(sub, x, y):
     '''
@@ -42,27 +44,32 @@ def solar_conversion(sub, x, y):
     y_sun=str(solar_y).split('arcsec')[0]
     return float(x_sun),float(y_sun)
 
-def world_from_pixel(metadata, x, y):
+def world_from_pixel(subject_id, x, y):
     '''
     Gets the solar coordinates of point (x,y) on selected image
 
     Parameters
     ----------
-    metadata : dict
-        The metadata for this Zooniverse subject
-        Used to reconstruct image coordinates as real world coordinates
+    subject_id : int
+        The subject id # for the image that we are extracting coordinates from
     x : float
         The x value to be converted
     y : float
         The y value to be converted
     '''
+    
+    subject = Subject(subject_id)
+    metadata = subject.metadata
+    width = float(metadata["#width"])
+    height = float(metadata["#height"])
+    y= height-y # To account for the inverted y axis in pixel coordinates
 
     #Normalize x and y if needed
     if x > 1 and y > 1:
-        x = x / float(metadata['#width'])
-        y = y / float(metadata['#height'])
+        x = x / width
+        y = y / height
 
-    #Convert metadata keys into 'proper' keys readable by sunpy
+    #Try to collect the fits_headers directly from the metadata
     fits_headers = {
         'naxis1': metadata['#naxis1'], #Pixels along axis 1
         'naxis2': metadata['#naxis2'], #Pixels along axis 2
@@ -71,9 +78,9 @@ def world_from_pixel(metadata, x, y):
         'crval1': metadata['#crval1'], #Coordinate value at reference point on naxis1
         'crval2': metadata['#crval2'], #Coordinate value at reference point on naxis2
         'cdelt1': metadata['#cdelt1'], #Spatial scale of pixels for naxis1, i.e. coordinate increment at reference point
-        'cdelt2': metadata['#cdelt1'], #Spatial scale of pixels for naxis2, i.e. coordinate increment at reference point
+        'cdelt2': metadata['#cdelt2'], #Spatial scale of pixels for naxis2, i.e. coordinate increment at reference point
         'crpix1': metadata['#crpix1'], #Pixel coordinate at reference point naxis1
-        'crpix2': metadata['#crpix1'], #Pixel coordinate at reference point naxis2
+        'crpix2': metadata['#crpix2'], #Pixel coordinate at reference point naxis2
         'crota2': metadata['#crota2'], #Rotation of the horizontal and vertical axes in degrees
     }
 
@@ -81,8 +88,8 @@ def world_from_pixel(metadata, x, y):
     map = Map(numpy.zeros((1,1)), fits_headers)
 
     #extract important pieces of metadata
-    fits_width = map.meta["naxis1"]
-    fits_height = map.meta["naxis2"]
+    fits_width = float(map.meta["naxis1"])
+    fits_height = float(map.meta["naxis2"])
     im_ll_x = float(metadata['#im_ll_x'])
     im_ll_y = float(metadata['#im_ll_y'])
     im_ur_x = float(metadata['#im_ur_x'])
