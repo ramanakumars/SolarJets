@@ -34,7 +34,7 @@ def solar_conversion(sub, x, y):
     y = float(metadata['#height'])-y
 
     #Convert coordinates using sunpy
-    wc = world_from_pixel(metadata, float(x), float(y))
+    wc = world_from_pixel(sub, float(x), float(y))
     
     #Extract desired values from sunpy map
     solar_x,solar_y = wc.Tx,wc.Ty
@@ -44,7 +44,7 @@ def solar_conversion(sub, x, y):
     y_sun=str(solar_y).split('arcsec')[0]
     return float(x_sun),float(y_sun)
 
-def world_from_pixel(subject_id, x, y):
+def world_from_pixel(subject_id : int, x, y):
     '''
     Gets the solar coordinates of point (x,y) on selected image
 
@@ -61,8 +61,9 @@ def world_from_pixel(subject_id, x, y):
     subject = Subject(subject_id)
     metadata = subject.metadata
     width = float(metadata["#width"])
+
     height = float(metadata["#height"])
-    y= height-y # To account for the inverted y axis in pixel coordinates
+    #y= height-y # To account for the inverted y axis in pixel coordinates
 
     #Normalize x and y if needed
     if x > 1 and y > 1:
