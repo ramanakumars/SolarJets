@@ -130,6 +130,7 @@ dmypy.json
 
 # images
 *.png
+*.pdf
 
 # data
 *.csv
