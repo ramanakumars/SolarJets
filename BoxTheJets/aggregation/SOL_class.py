@@ -169,6 +169,8 @@ def json_import_list(input_file):
 
         cluster_obj.Width = json_obj['width']['mean']
         cluster_obj.std_W = json_obj['width']['std']
+        cluster_obj.Height = json_obj['height']['mean']
+        cluster_obj.std_H = json_obj['height']['std']
 
         cluster_obj.sigma = json_obj['sigma']
 
