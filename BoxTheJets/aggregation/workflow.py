@@ -2,10 +2,11 @@ import numpy as np
 from astropy.io import ascii
 import matplotlib.pyplot as plt
 import ast
+import tqdm
 import json
 from shapely.geometry import Polygon, Point
 from .jet import Jet
-from .shape_utils import get_box_edges, get_point_distance, sigma_shape
+from .shape_utils import get_box_edges, get_point_distance, sigma_shape, BasePoint, Box
 from .zoo_utils import get_subject_image
 
 
@@ -14,7 +15,7 @@ class Aggregator:
         Single data class to handle different aggregation requirements
     '''
 
-    def __init__(self, reductions_file):
+    def __init__(self, points_file, box_file):
         '''
             Inputs
             ------
@@ -23,12 +24,118 @@ class Aggregator:
             box_file : str
                 path to the reduced box data
         '''
-        self.reductions_file = reductions_file
-        with open(reductions_file, 'r') as in_file:
-            self.reductions_data = json.load(in_file)
+        point_reductions = ascii.read(points_file, format='csv').filled()
+        box_reductions = ascii.read(box_file, format='csv').filled()
 
-        # get a list of unique subjects
-        self.subjects = self.get_subjects()
+        self.subjects = np.unique([*point_reductions['subject_id'], *box_reductions['subject_id']])
+
+        self.start_points_data = []
+        self.end_points_data = []
+        self.box_data = []
+
+        for i, subject_id in enumerate(tqdm.tqdm(self.subjects, desc='Getting data')):
+            point_rows = point_reductions[(point_reductions['subject_id'] == subject_id) & (point_reductions['task'] == 'T0')]
+
+            for row in point_rows:
+                try:
+                    cluster_start_x = np.asarray(json.loads(row['data.frame0.T0_toolIndex0_clusters_x']))
+                    cluster_start_y = np.asarray(json.loads(row['data.frame0.T0_toolIndex0_clusters_y']))
+                    cluster_start_time = np.asarray(json.loads(row['data.frame0.T0_toolIndex0_clusters_displayTime']))
+                except json.JSONDecodeError:
+                    continue
+
+                row_start_x = np.asarray(json.loads(row['data.frame0.T0_toolIndex0_points_x']))
+                row_start_y = np.asarray(json.loads(row['data.frame0.T0_toolIndex0_points_y']))
+                row_start_time = np.asarray(json.loads(row['data.frame0.T0_toolIndex0_points_displayTime']))
+                row_start_labels = np.asarray(json.loads(row['data.frame0.T0_toolIndex0_cluster_labels']))
+                row_start_probs = np.asarray(json.loads(row['data.frame0.T0_toolIndex0_cluster_probabilities']))
+
+                for i, (x, y, time) in enumerate(zip(cluster_start_x, cluster_start_y, cluster_start_time)):
+                    start_point = BasePoint(x=x, y=y, displayTime=time, subject_id=subject_id)
+
+                    extracts_mask = row_start_labels == i
+                    extracts_x = row_start_x[extracts_mask]
+                    extracts_y = row_start_y[extracts_mask]
+                    extracts_time = row_start_time[extracts_mask]
+                    extracts_prob = row_start_probs[extracts_mask]
+
+                    extract_points = []
+                    for j, (x, y, time, prob) in enumerate(zip(extracts_x, extracts_y, extracts_time, extracts_prob)):
+                        extract_points.append(BasePoint(x=x, y=y, displayTime=time, probability=prob, subject_id=subject_id))
+
+                    start_point.extracts = extract_points
+
+                    self.start_points_data.append(start_point)
+
+                try:
+                    cluster_end_x = np.asarray(json.loads(row['data.frame0.T0_toolIndex1_clusters_x']))
+                    cluster_end_y = np.asarray(json.loads(row['data.frame0.T0_toolIndex1_clusters_y']))
+                    cluster_end_time = np.asarray(json.loads(row['data.frame0.T0_toolIndex1_clusters_displayTime']))
+                except json.JSONDecodeError:
+                    continue
+
+                row_end_x = np.asarray(json.loads(row['data.frame0.T0_toolIndex1_points_x']))
+                row_end_y = np.asarray(json.loads(row['data.frame0.T0_toolIndex1_points_y']))
+                row_end_time = np.asarray(json.loads(row['data.frame0.T0_toolIndex1_points_displayTime']))
+                row_end_labels = np.asarray(json.loads(row['data.frame0.T0_toolIndex1_cluster_labels']))
+                row_end_probs = np.asarray(json.loads(row['data.frame0.T0_toolIndex1_cluster_probabilities']))
+
+                for i, (x, y, time) in enumerate(zip(cluster_end_x, cluster_end_y, cluster_end_time)):
+                    end_point = BasePoint(x=x, y=y, displayTime=time, subject_id=subject_id)
+
+                    extracts_mask = row_end_labels == i
+                    extracts_x = row_end_x[extracts_mask]
+                    extracts_y = row_end_y[extracts_mask]
+                    extracts_time = row_end_time[extracts_mask]
+                    extracts_prob = row_end_probs[extracts_mask]
+
+                    extract_points = []
+                    for j, (x, y, time, prob) in enumerate(zip(extracts_x, extracts_y, extracts_time, extracts_prob)):
+                        extract_points.append(BasePoint(x=x, y=y, displayTime=time, probability=prob, subject_id=subject_id))
+
+                    end_point.extracts = extract_points
+
+                    self.end_points_data.append(end_point)
+
+            box_rows = box_reductions[(box_reductions['subject_id'] == subject_id) & (box_reductions['task'] == 'T0')]
+            for row in box_rows:
+                try:
+                    cluster_box_x = np.asarray(json.loads(row['data.frame0.T0_toolIndex2_clusters_x_center']))
+                    cluster_box_y = np.asarray(json.loads(row['data.frame0.T0_toolIndex2_clusters_y_center']))
+                    cluster_box_w = np.asarray(json.loads(row['data.frame0.T0_toolIndex2_clusters_width']))
+                    cluster_box_h = np.asarray(json.loads(row['data.frame0.T0_toolIndex2_clusters_height']))
+                    cluster_box_a = np.asarray(json.loads(row['data.frame0.T0_toolIndex2_clusters_angle']))
+                    cluster_box_time = np.asarray(json.loads(row['data.frame0.T0_toolIndex2_clusters_displayTime']))
+                except json.JSONDecodeError:
+                    continue
+
+                row_box_x = np.asarray(json.loads(row['data.frame0.T0_toolIndex2_temporalRotateRectangle_x_center']))
+                row_box_y = np.asarray(json.loads(row['data.frame0.T0_toolIndex2_temporalRotateRectangle_y_center']))
+                row_box_w = np.asarray(json.loads(row['data.frame0.T0_toolIndex2_temporalRotateRectangle_width']))
+                row_box_h = np.asarray(json.loads(row['data.frame0.T0_toolIndex2_temporalRotateRectangle_height']))
+                row_box_a = np.asarray(json.loads(row['data.frame0.T0_toolIndex2_temporalRotateRectangle_angle']))
+                row_box_time = np.asarray(json.loads(row['data.frame0.T0_toolIndex2_temporalRotateRectangle_displayTime']))
+                row_box_labels = np.asarray(json.loads(row['data.frame0.T0_toolIndex2_cluster_labels']))
+
+                for i, (x, y, w, h, a, time) in enumerate(zip(cluster_box_x, cluster_box_y, cluster_box_w, cluster_box_h, cluster_box_a, cluster_box_time)):
+                    box = Box(xcenter=x, ycenter=y, width=w, height=h, angle=np.radians(a), displayTime=time, subject_id=subject_id)
+
+                    extracts_mask = row_box_labels == i
+                    extracts_x = row_box_x[extracts_mask]
+                    extracts_y = row_box_y[extracts_mask]
+                    extracts_w = row_box_w[extracts_mask]
+                    extracts_h = row_box_h[extracts_mask]
+                    extracts_a = np.radians(row_box_a[extracts_mask])
+                    extracts_time = row_box_time[extracts_mask]
+
+                    extract_boxes = []
+                    for j, (x, y, w, h, a, time) in enumerate(zip(extracts_x, extracts_y, extracts_w, extracts_h, extracts_a, extracts_time)):
+                        box_ext = Box(xcenter=x, ycenter=y, width=w, height=h, angle=a, displayTime=time, subject_id=subject_id)
+                        extract_boxes.append(box_ext)
+
+                    box.extracts = extract_boxes
+
+                    self.box_data.append(box)
 
     def get_subjects(self):
         '''
@@ -39,7 +146,7 @@ class Aggregator:
             subjects : numpy.ndarray
                 Array of subject IDs on Zooniverse
         '''
-        subjects = [e['subject_id'] for e in self.reductions_data]
+        subjects = [e.subject_id for e in self.reductions_data]
         # if min([len(e[key]['clusters']) for key in ['box','start','end']]) > 0]
 
         return np.unique(subjects)
