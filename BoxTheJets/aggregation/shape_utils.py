@@ -1,4 +1,6 @@
 import numpy as np
+from dataclasses import dataclass
+from panoptes_aggregation.reducers.shape_metric_IoU import IoU_metric
 
 
 def get_box_edges(x, y, w, h, a):
@@ -157,3 +159,63 @@ def sigma_shape(params, sigma):
     plus_sigma = scale_shape(params, 1 / gamma)
     minus_sigma = scale_shape(params, gamma)
     return plus_sigma, minus_sigma
+
+
+@dataclass
+class BasePoint:
+    x: float
+    y: float
+    displayTime: float
+    subject_id: int
+    probability: float = 0
+
+
+@dataclass
+class Box:
+    xcenter: float
+    ycenter: float
+    width: float
+    height: float
+    angle: float
+    displayTime: float
+    subject_id: int
+    probability: float = 0
+
+    def get_box_edges(self):
+        '''
+            Return the corners of the box given one corner, width, height
+            and angle
+
+            Outputs
+            --------
+            corners : numpy.ndarray
+                Length 4 array with coordinates of the box edges
+        '''
+        centre = np.array([self.xcenter, self.ycenter])
+        original_points = np.array(
+            [
+                [self.xcenter - 0.5 * self.width, self.ycenter - 0.5 * self.height],  # This would be the box if theta = 0
+                [self.xcenter + 0.5 * self.width, self.ycenter - 0.5 * self.height],
+                [self.xcenter + 0.5 * self.width, self.ycenter + 0.5 * self.height],
+                [self.xcenter - 0.5 * self.width, self.ycenter + 0.5 * self.height],
+                # repeat the first point to close the loop
+                [self.xcenter - 0.5 * self.width, self.ycenter - 0.5 * self.height]
+            ]
+        )
+        rotation = np.array([[np.cos(self.angle), np.sin(self.angle)], [-np.sin(self.angle), np.cos(self.angle)]])
+        corners = np.matmul(original_points - centre, rotation) + centre
+        return corners
+
+    @property
+    def extract_IoU(self):
+        if not hasattr(self, '_extract_IoU'):
+            if not hasattr(self, 'extracts'):
+                raise TypeError('Box does not have extracts!')
+            IoUs = []
+            for extract in self.extracts:
+                IoUs.append(1. - IoU_metric([self.xcenter, self.ycenter, self.width, self.height, self.angle, self.displayTime],
+                                            [extract.xcenter, extract.ycenter, extract.width, extract.height, extract.angle, extract.displayTime],
+                                            'temporalRotateRectangle'))
+            self._extract_IoU = np.mean(IoUs)
+
+        return self._extract_IoU
