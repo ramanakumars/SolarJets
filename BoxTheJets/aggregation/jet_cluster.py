@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from .zoo_utils import get_subject_image
-from .io import json_export_list
 import tqdm
 
 
@@ -63,13 +62,3 @@ class JetCluster:
         ani = animation.ArtistAnimation(fig, ims)
         ani.save(output, writer='ffmpeg')
         plt.close('all')
-
-    def json_export(self, output):
-        '''
-            export one single jet cluster to output.json file
-            Inputs
-            ------
-            output : str
-                name of the exported json file
-        '''
-        json_export_list([self], output)
