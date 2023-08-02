@@ -1,8 +1,8 @@
 from panoptes_client import Subject
-from skimage import io, transform
+import imageio
 
 
-def get_subject_image(subject, frame=7):
+def get_subject_image(subject, time=0.5):
     '''
         Fetch the subject image from Panoptes (Zooniverse database)
 
@@ -19,16 +19,9 @@ def get_subject_image(subject, frame=7):
             RGB image corresponding to `frame`
     '''
     # get the subject metadata from Panoptes
-    subjecti = Subject(int(subject))
-    try:
-        frame0_url = subjecti.raw['locations'][frame]['image/png']
-    except KeyError:
-        frame0_url = subjecti.raw['locations'][frame]['image/jpeg']
-
-    img = io.imread(frame0_url)
-
-    # for subjects that have an odd size, resize them
-    if img.shape[0] != 1920:
-        img = transform.resize(img, (1440, 1920))
+    subject = Subject(int(subject))
+    vid = imageio.get_reader(subject.locations[0]['video/mp4'], 'ffmpeg')
+    frameid = int(time * vid.get_meta_data()['fps'])
+    img = vid.get_data(frameid)
 
     return img
