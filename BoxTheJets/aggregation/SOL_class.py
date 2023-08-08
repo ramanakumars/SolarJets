@@ -425,9 +425,11 @@ class SOL:
             except (ValueError, IndexError):
                 continue
 
-        jets = np.asarray(event_jets)
-        jet_starts = np.asarray(jet_starts)
         times = np.asarray(times)
+        times_sort = np.argsort(times)
+        times = times[times_sort]
+        jets = np.asarray(event_jets)[times_sort]
+        jet_starts = np.asarray(jet_starts)[times_sort]
 
         box_metric = np.zeros((len(jets), len(jets)))
         time_metric = np.zeros((len(jets), len(jets)))
