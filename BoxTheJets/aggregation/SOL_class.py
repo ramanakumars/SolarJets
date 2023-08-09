@@ -8,6 +8,7 @@ from .workflow import get_subject_image, get_box_edges
 from shapely.geometry import Polygon
 import json
 import tqdm
+from .meta_file_handler import MetaFile
 
 
 class NpEncoder(json.JSONEncoder):
@@ -196,19 +197,19 @@ class SOL:
         Single data class to handle all function related to a HEK/SOL_event
     '''
 
-    def __init__(self, SOL_stats_file, aggregator):
+    def __init__(self, meta_file_name, aggregator): #CHANGED
         '''
             Inputs
             ------
-            SOL_event : str
-                Date and time of a read in event
-                Solar Object Locator of HEK database
-                format: 'SOLyyyy-mm-ddThh:mm:ssL000C000'
-
+            meta_file_name : str
+                meta data json file
+                Contains selcted meta data for each subject as saved in Zooniverse
+                keys: {"startDate", "endDate", "#file_name_0","#file_name_14","#sol_standard", "#width", "#height",
+                  "#naxis1", "#naxis2",  "#cunit1", "#cunit2", "#crval1","#crval2", "#cdelt1", "#cdelt2", 
+                  "#crpix1", "#crpix2","#crota2", "#im_ll_x","#im_ll_y","#im_ur_x","#im_ur_y"}
         '''
-        self.SOL_small, self.SOL_subjects, self.filenames0, self.times, self.Num, \
-            self.start, self.end, self.notes = \
-            np.loadtxt(SOL_stats_file, delimiter=',', unpack=True, dtype=str)
+       
+        self.metafile = MetaFile(meta_file_name)
         self.aggregator = aggregator
 
     def event_bar_plot(self, SOL_event, task='Tc'):
@@ -217,8 +218,10 @@ class SOL:
             Produced by SOL_analytics.ipynb
             Inputs
             ------
-                SOL_event: str
-                    name of the SOL event used in Zooniverse
+                SOL_event : str
+                    Date and time of a read in event
+                    Solar Object Locator of HEK database
+                    format: 'SOLyyyy-mm-ddThh:mm:ssL000C000'
                 task : str
                     the task key (from Zooniverse)
                     default Tc (combined results of task T0 and T3)
@@ -235,7 +238,7 @@ class SOL:
 
         display(fig)
 
-    def get_subjects(self, SOL_event):
+    def get_subjects(self, SOL_event): ##CHANGED
         '''
         Get the subjects that correspond to a given SOL event
         Inputs
@@ -252,8 +255,10 @@ class SOL:
         SOL_small,SOL_subjects,times,Num,start,end,notes=np.loadtxt('path/SOL/SOL_{}_stats.csv'.format('Tc'),delimiter=',',unpack=True,dtype=str)
         Num=Num.astype(float)
         '''
-        i = np.argwhere(self.SOL_small == SOL_event)[0][0]
-        subjects = np.fromstring(self.SOL_subjects[i], dtype=int, sep=' ')
+        #i = np.argwhere(self.SOL_small == SOL_event)[0][0]
+        #subjects = np.fromstring(self.SOL_subjects[i], dtype=int, sep=' ')
+
+        subjects    = self.metafile.getSubjectIdBySolStandard(SOL_event)
 
         return subjects
 
@@ -271,11 +276,8 @@ class SOL:
 
         saved in SOL_Tc_stats.csv
         '''
-        i = np.argwhere(self.SOL_small == SOL_event)[0][0]
-        T = [a + 'T' + b for a,
-             b in zip(self.times[i].split(' ')[::2], self.times[i].split(' ')[1::2])]
-        obs_time = np.array([parse(T[t])
-                            for t in range(len(T))], dtype='datetime64')
+        obs_time    = self.metafile.getSubjectByKeyBySolStandard(SOL_event, 'startDate')
+
         return obs_time
 
     def plot_subjects(self, SOL_event):
@@ -312,15 +314,9 @@ class SOL:
                 end time of the subjects
         saved in SOL_Tc_stats.csv
         '''
-        i = np.argwhere(self.SOL_small == SOL_event)[0][0]
-        S = [a + 'T' + b for a,
-             b in zip(self.start[i].split(' ')[::2], self.start[i].split(' ')[1::2])]
-        start_time = np.array([parse(S[t])
-                              for t in range(len(S))], dtype='datetime64')
-        E = [a + 'T' + b for a,
-             b in zip(self.end[i].split(' ')[::2], self.end[i].split(' ')[1::2])]
-        end_time = np.array([parse(E[t])
-                            for t in range(len(E))], dtype='datetime64')
+        start_time  = self.metafile.getSubjectByKeyBySolStandard(SOL_event, 'startDate')
+        end_time    = self.metafile.getSubjectByKeyBySolStandard(SOL_event, 'endDate')
+
         return start_time, end_time
 
     def get_filenames0(self, SOL_event):
@@ -335,35 +331,8 @@ class SOL:
             files : np.array
                 get an array of the filenames of the subject in the SOL event
         '''
-        i = np.argwhere(self.SOL_small == SOL_event)[0][0]
-        files = np.array(self.filenames0[i].split(' '))
+        files   = self.metafile.getSubjectByKeyBySolStandard(SOL_event, '#file_name_0')
         return files
-
-    def get_notes_time(self, SOL_event):
-        '''
-        Get the notes of jet event (sequential jet subjects) in given SOL event
-
-        Inputs
-        ------
-            SOL_event : str
-                name of the SOL event used in Zooniverse
-
-        Outputs
-        -------
-
-            notes_time: str
-                flags given to subjects, revised after jet clusters are formed
-                100 means an event of less than 6 minutes
-                010 means an event where 2 event are closely after eachother
-                saved in SOL_Tc_stats.csv
-        '''
-        i = np.argwhere(self.SOL_small == SOL_event)[0][0]
-        flag = np.array(self.notes[i].split(' ')[1::3])
-        N = [a + 'T' + b for a,
-             b in zip(self.notes[i].split(' ')[2::3], self.notes[i].split(' ')[3::3])]
-        notes_time = np.array([parse(N[t])
-                              for t in range(len(N))], dtype='datetime64')
-        return notes_time, flag
 
     def event_box_plot(self, SOL_event):
         '''
@@ -466,7 +435,7 @@ class SOL:
         labels = -1. * np.ones(len(jets))
         subjects = np.asarray([jet.subject for jet in jets])
 
-        print(f"Using eps={eps} and time_eps={time_eps*30} min")
+        #print(f"Using eps={eps} and time_eps={time_eps*30} min")
 
         while len(indices) > 0:
             ind = indices[0]

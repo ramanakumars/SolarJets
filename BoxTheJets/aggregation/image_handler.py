@@ -7,7 +7,7 @@ from panoptes_client import Subject
 from sunpy.map import Map
 
 
-def solar_conversion(sub, x, y):
+def solar_conversion(sub, x, y, metadata):
     '''
     Convert from pixel coordinates in the Zooniverse subjects to solar coordinates 
         Inputs
@@ -27,14 +27,12 @@ def solar_conversion(sub, x, y):
             Solar Y loaction in arcsec
     '''
 
-    subject = Subject(sub)
-    metadata = subject.metadata
 
     #Change de Y pixels to Height-Y since the pixel frame is defined inverted from the Zooniverse processor calculation
     y = float(metadata['#height'])-y
 
     #Convert coordinates using sunpy
-    wc = world_from_pixel(sub, float(x), float(y))
+    wc = world_from_pixel(sub, float(x), float(y), metadata)
     
     #Extract desired values from sunpy map
     solar_x,solar_y = wc.Tx,wc.Ty
@@ -44,7 +42,7 @@ def solar_conversion(sub, x, y):
     y_sun=str(solar_y).split('arcsec')[0]
     return float(x_sun),float(y_sun)
 
-def world_from_pixel(subject_id : int, x, y):
+def world_from_pixel(subject_id : int, x, y, metadata):
     '''
     Gets the solar coordinates of point (x,y) on selected image
 
@@ -58,8 +56,6 @@ def world_from_pixel(subject_id : int, x, y):
         The y value to be converted
     '''
     
-    subject = Subject(subject_id)
-    metadata = subject.metadata
     width = float(metadata["#width"])
 
     height = float(metadata["#height"])

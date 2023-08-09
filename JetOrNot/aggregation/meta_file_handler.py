@@ -18,8 +18,10 @@ class MetaFile:
             data = json.load(open(file_name))
         except FileNotFoundError: 
             print(f'{file_name} was not found')
+            return
         except:
             print('This file could not be read out as a json, please check the format')
+            return
 
         self.file_name = file_name
         self.data = data
@@ -43,7 +45,7 @@ class MetaFile:
     def getSubjectByKeyBySolStandard(self,sol_standard: str, key: str):
         try:
             if key == 'startDate' or key == 'endDate':
-                return np.asarray([stringToDateTime(x['data'][key]) for x in self.data if x['data']['#sol_standard'] == sol_standard])
+                return np.asarray([stringToDateTime(x['data'][key]) for x in self.data if x['data']['#sol_standard'] == sol_standard],dtype='datetime64')
             else:
                 return np.asarray([x['data'][key] for x in self.data if x['data']['#sol_standard'] == sol_standard])
         except KeyError:
@@ -59,7 +61,7 @@ class MetaFile:
         except ValueError:
             print('ERROR: the start_date and end_date should be in format \'YYY-MM-dd\' or \'YYYY-MM-dd\' hh:mm:ss')
         except:
-            print('ERROR: no data can be found between '+ str(start_date)+ str(end_date) +' in '+ FILE_NAME)
+            print('ERROR: no data can be found between '+ str(start_date)+ str(end_date) +' in '+ self.file_name)
             return np.asarray([])
 
     def getSubjectdatabyId(self,subjectId: int):
@@ -72,6 +74,18 @@ class MetaFile:
                 return np.asarray([])
         except:
             print("ERROR: could not load data from file: "+ self.file_name)
+
+    def getSubjectByKeyById(self,subjectId: int, key: str):
+        try:
+            if key == 'startDate' or key == 'endDate':
+                return np.asarray([stringToDateTime(x['data'][key]) for x in self.data if x['subjectId']==subjectId],dtype='datetime64')[0]
+            else:
+                return np.asarray([x['data'][key] for x in self.data if x['subjectId']==subjectId])[0]
+        except KeyError:
+            print('ERROR: key '+ key +' not found, please check your spelling')
+        except:
+            print('ERROR: subjectId '+ str(subjectId) +' could not be read from '+ self.file_name)
+            return np.asarray([])  
 
 def stringToDateTime(dateTimeString: str):
     return datetime.datetime.fromisoformat(dateTimeString)
