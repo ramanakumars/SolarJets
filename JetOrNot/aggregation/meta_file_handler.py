@@ -87,5 +87,17 @@ class MetaFile:
             print('ERROR: subjectId '+ str(subjectId) +' could not be read from '+ self.file_name)
             return np.asarray([])  
 
+    def getSubjectByKeyByList(self,subjectIdlist: np.array, key: str):
+        try:
+            if key == 'startDate' or key == 'endDate':
+                return np.asarray([[stringToDateTime(x['data'][key]) for x in self.data if x['subjectId']==subjectId][0] for subjectId in subjectIdlist],dtype='datetime64')
+            else:
+                return np.asarray([[x['data'][key] for x in self.data if x['subjectId']==subjectId][0] for subjectId in subjectIdlist])
+        except KeyError:
+            print('ERROR: key '+ key +' not found, please check your spelling')
+        except:
+            print('ERROR: subjectId '+ str(subjectIdlist) +' could not be read from '+ self.file_name)
+            return np.asarray([])  
+
 def stringToDateTime(dateTimeString: str):
     return datetime.datetime.fromisoformat(dateTimeString)
