@@ -12,11 +12,13 @@ import ast
 
 FETCH_FROM_PANOPTES = False
 
+
 def initializer():
     '''
         Ignore CTRL+C in the worker process
     '''
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+
 
 def get_subject_scale(subject_id):
     '''
@@ -25,11 +27,11 @@ def get_subject_scale(subject_id):
         sizes by directly opening the image
     '''
     try:
-        # create the subject object 
+        # create the subject object
         subject = Subject(subject_id)
-        widths  = np.zeros(15)
+        widths = np.zeros(15)
         heights = np.zeros(15)
-        
+
         # loop through the frames
         for frame in range(15):
             # get the image URL on panoptes
@@ -38,25 +40,26 @@ def get_subject_scale(subject_id):
             except KeyError:
                 frame_url = subject.raw['locations'][frame]['image/jpeg']
 
-            # read the image from the url 
+            # read the image from the url
             img = io.imread(frame_url)
             # and get its shape
             ny, nx, _ = img.shape
 
-            widths[frame]  = nx
+            widths[frame] = nx
             heights[frame] = ny
 
-        # the standard size is 1920x1440 so 
+        # the standard size is 1920x1440 so
         # we will scale everything else to that size
-        meta_width=float(subject.raw['metadata']['#width'])
-        scale = widths/meta_width
+        meta_width = float(subject.raw['metadata']['#width'])
+        scale = widths / meta_width
 
         # add this info to the table
         data = [int(subject.id), *scale]
-        
+
         return data
     except Exception as e:
         return None
+
 
 def get_scales_set(save=True):
     '''
@@ -65,13 +68,13 @@ def get_scales_set(save=True):
         standard
     '''
     # create the column names and associated datatypes
-    names  = ['subject_id']
+    names = ['subject_id']
     dtypes = ['i4']
     for i in range(15):
         names.append(f'frame_{i}_scale')
         dtypes.append('f4')
 
-    # and initialize the empty table so we can add 
+    # and initialize the empty table so we can add
     # rows later on
     table = Table(names=names, dtype=dtypes)
 
@@ -84,9 +87,9 @@ def get_scales_set(save=True):
             subjects.append(subject.id)
     else:
         subject_data = ascii.read('extracts/point_extractor_by_frame_box_the_jets.csv')
-        subjects     = list(np.unique(subject_data['subject_id']))
+        subjects = list(np.unique(subject_data['subject_id']))
 
-    # run this process in parallel since there is a lot of 
+    # run this process in parallel since there is a lot of
     # waiting for the API callback
     run = 0
     with Pool(initializer=initializer) as pool:
@@ -95,9 +98,6 @@ def get_scales_set(save=True):
             print(f"Pass {run+1}")
             try:
                 r = tqdm.tqdm(pool.imap_unordered(get_subject_scale, subjects), total=len(subjects))
-
-
-                ninpt = len(subjects)
 
                 nfailed = 0
                 for result in r:
@@ -121,39 +121,38 @@ def get_scales_set(save=True):
                 pool.join()
             except Exception:
                 raise
-            
+
             run += 1
 
         pool.close()
         pool.join()
 
-
     if save:
         table.write('configs/subject_scales.csv', format='csv', overwrite=True)
-    
+
     return table
 
-def modify_extracts(table, point_extracts='extracts/point_extractor_by_frame_box_the_jets.csv', 
+
+def modify_extracts(table, point_extracts='extracts/point_extractor_by_frame_box_the_jets.csv',
                     box_extracts='extracts/shape_extractor_rotateRectangle_box_the_jets.csv'):
-    points_data    = ascii.read(point_extracts, delimiter=',')
+    points_data = ascii.read(point_extracts, delimiter=',')
     points_data_sc = points_data.copy()
 
-    # increase the string length so that 
+    # increase the string length so that
     # we don't get string truncation
-    for task in ['T1','T5']:
+    for task in ['T1', 'T5']:
         for frame in range(15):
-            for tool in ['tool0','tool1']:
-                for key in ['x','y']:
+            for tool in ['tool0', 'tool1']:
+                for key in ['x', 'y']:
                     col = f'data.frame{frame}.{task}_{tool}_{key}'
                     points_data_sc[col] = points_data_sc[col].astype('<U40')
-
 
     # loop through all the subjects
     for row in tqdm.tqdm(table, desc='Processing points'):
         subject = row['subject_id']
 
         # find the relevant subjects in the point extractor
-        mask = np.where(points_data['subject_id']==subject)[0]
+        mask = np.where(points_data['subject_id'] == subject)[0]
 
         # for each extract
         for row_ind in mask:
@@ -162,48 +161,46 @@ def modify_extracts(table, point_extracts='extracts/point_extractor_by_frame_box
             # for each frame, tool and data value (x,y)
             for frame in range(15):
                 scale = row[f'frame_{frame}_scale']
-                for tool in ['tool0','tool1']:
-                    for key in ['x','y']:
+                for tool in ['tool0', 'tool1']:
+                    for key in ['x', 'y']:
 
                         # get the extract
-                        col  = f'data.frame{frame}.{task}_{tool}_{key}'
+                        col = f'data.frame{frame}.{task}_{tool}_{key}'
                         data = points_data[col][row_ind]
 
                         # check if the entry has data
                         try:
                             # convert to list
-                            data        = ast.literal_eval(data)
+                            data = ast.literal_eval(data)
 
                             # apply the scaling
-                            data_scaled = [val/scale for val in data]
+                            data_scaled = [val / scale for val in data]
 
                             # and save it back to the scaled table
                             points_data_sc[col][row_ind] = str(data_scaled)
-                            last_col = col
                         except ValueError:
                             continue
     points_data_sc.write(point_extracts.replace('.csv', '_scaled.csv'), delimiter=',', overwrite=True)
-    
+
     # repeat for the box data
-    box_data    = ascii.read(box_extracts, delimiter=',')
+    box_data = ascii.read(box_extracts, delimiter=',')
     box_data_sc = box_data.copy()
-    
-    # increase the string length so that 
+
+    # increase the string length so that
     # we don't get string truncation
-    for task in ['T1','T5']:
+    for task in ['T1', 'T5']:
         for frame in range(15):
             for tool in ['tool2']:
-                for key in ['x','y','width','height','angle']:
+                for key in ['x', 'y', 'width', 'height', 'angle']:
                     col = f'data.frame{frame}.{task}_{tool}_{key}'
                     box_data_sc[col] = box_data_sc[col].astype('<U40')
-
 
     # loop through all the subjects
     for row in tqdm.tqdm(table, desc='Processing box'):
         subject = row['subject_id']
 
         # find the relevant subjects in the point extractor
-        mask = np.where(box_data['subject_id']==subject)[0]
+        mask = np.where(box_data['subject_id'] == subject)[0]
 
         # for each extract
         for row_ind in mask:
@@ -213,29 +210,29 @@ def modify_extracts(table, point_extracts='extracts/point_extractor_by_frame_box
             for frame in range(15):
                 scale = row[f'frame_{frame}_scale']
                 for tool in ['tool2']:
-                    for key in ['x','y','width','height']:
+                    for key in ['x', 'y', 'width', 'height']:
 
                         # get the extract
-                        col  = f'data.frame{frame}.{task}_{tool}_{key}'
+                        col = f'data.frame{frame}.{task}_{tool}_{key}'
                         data = box_data_sc[col][row_ind]
 
                         # check if the entry has data
                         try:
                             # convert to list
-                            data        = ast.literal_eval(data)
+                            data = ast.literal_eval(data)
 
                             # apply the scaling
-                            data_scaled = [val/scale for val in data]
+                            data_scaled = [val / scale for val in data]
 
                             # and save it back to the original array
                             box_data_sc[col][row_ind] = str(data_scaled)
                         except ValueError:
                             continue
-                            
-    box_data_sc.write(box_extracts.replace('.csv', '_scaled.csv'), format='csv', overwrite=True)
-            
 
-if __name__=='__main__':
+    box_data_sc.write(box_extracts.replace('.csv', '_scaled.csv'), format='csv', overwrite=True)
+
+
+if __name__ == '__main__':
     if os.path.exists('configs/subject_scales.csv'):
         table = ascii.read('configs/subject_scales.csv')
     else:
