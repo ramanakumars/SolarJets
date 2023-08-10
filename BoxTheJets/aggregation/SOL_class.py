@@ -203,7 +203,7 @@ class SOL:
             ------
             meta_file_name : str
                 meta data json file
-                Contains selcted meta data for each subject as saved in Zooniverse
+                Contains selected meta data for each subject as saved in Zooniverse
                 keys: {"startDate", "endDate", "#file_name_0","#file_name_14","#sol_standard", "#width", "#height",
                   "#naxis1", "#naxis2",  "#cunit1", "#cunit2", "#crval1","#crval2", "#cdelt1", "#cdelt2", 
                   "#crpix1", "#crpix2","#crota2", "#im_ll_x","#im_ll_y","#im_ur_x","#im_ur_y"}
@@ -255,10 +255,8 @@ class SOL:
         SOL_small,SOL_subjects,times,Num,start,end,notes=np.loadtxt('path/SOL/SOL_{}_stats.csv'.format('Tc'),delimiter=',',unpack=True,dtype=str)
         Num=Num.astype(float)
         '''
-        #i = np.argwhere(self.SOL_small == SOL_event)[0][0]
-        #subjects = np.fromstring(self.SOL_subjects[i], dtype=int, sep=' ')
 
-        subjects    = self.metafile.getSubjectIdBySolStandard(SOL_event)
+        subjects    = self.metafile.get_subjectid_by_solstandard(SOL_event)
 
         return subjects
 
@@ -276,7 +274,7 @@ class SOL:
 
         saved in SOL_Tc_stats.csv
         '''
-        obs_time    = self.metafile.getSubjectByKeyBySolStandard(SOL_event, 'startDate')
+        obs_time    = self.metafile.get_subjectkeyvalue_by_solstandard(SOL_event, 'startDate')
 
         return obs_time
 
@@ -314,8 +312,8 @@ class SOL:
                 end time of the subjects
         saved in SOL_Tc_stats.csv
         '''
-        start_time  = self.metafile.getSubjectByKeyBySolStandard(SOL_event, 'startDate')
-        end_time    = self.metafile.getSubjectByKeyBySolStandard(SOL_event, 'endDate')
+        start_time  = self.metafile.get_subjectkeyvalue_by_solstandard(SOL_event, 'startDate')
+        end_time    = self.metafile.get_subjectkeyvalue_by_solstandard(SOL_event, 'endDate')
 
         return start_time, end_time
 
@@ -331,7 +329,7 @@ class SOL:
             files : np.array
                 get an array of the filenames of the subject in the SOL event
         '''
-        files   = self.metafile.getSubjectByKeyBySolStandard(SOL_event, '#file_name_0')
+        files   = self.metafile.get_subjectkeyvalue_by_solstandard(SOL_event, '#file_name_0')
         return files
 
     def event_box_plot(self, SOL_event):
