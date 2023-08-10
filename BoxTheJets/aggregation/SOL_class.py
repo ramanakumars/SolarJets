@@ -466,7 +466,7 @@ class SOL:
         labels = -1. * np.ones(len(jets))
         subjects = np.asarray([jet.subject for jet in jets])
 
-        print(f"Using eps={eps} and time_eps={time_eps*30} min")
+        #print(f"Using eps={eps} and time_eps={time_eps*30} min")
 
         while len(indices) > 0:
             ind = indices[0]
