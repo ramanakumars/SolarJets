@@ -197,7 +197,7 @@ class SOL:
         Single data class to handle all function related to a HEK/SOL_event
     '''
 
-    def __init__(self, meta_file_name, aggregator): #CHANGED
+    def __init__(self, meta_file_name, aggregator):  # CHANGED
         '''
             Inputs
             ------
@@ -208,7 +208,7 @@ class SOL:
                   "#naxis1", "#naxis2",  "#cunit1", "#cunit2", "#crval1","#crval2", "#cdelt1", "#cdelt2", 
                   "#crpix1", "#crpix2","#crota2", "#im_ll_x","#im_ll_y","#im_ur_x","#im_ur_y"}
         '''
-       
+
         self.metafile = MetaFile(meta_file_name)
         self.aggregator = aggregator
 
@@ -238,7 +238,7 @@ class SOL:
 
         display(fig)
 
-    def get_subjects(self, SOL_event): ##CHANGED
+    def get_subjects(self, SOL_event):  # CHANGED
         '''
         Get the subjects that correspond to a given SOL event
         Inputs
@@ -256,7 +256,7 @@ class SOL:
         Num=Num.astype(float)
         '''
 
-        subjects    = self.metafile.get_subjectid_by_solstandard(SOL_event)
+        subjects = self.metafile.get_subjectid_by_solstandard(SOL_event)
 
         return subjects
 
@@ -274,7 +274,7 @@ class SOL:
 
         saved in SOL_Tc_stats.csv
         '''
-        obs_time    = self.metafile.get_subjectkeyvalue_by_solstandard(SOL_event, 'startDate')
+        obs_time = self.metafile.get_subjectkeyvalue_by_solstandard(SOL_event, 'startDate')
 
         return obs_time
 
@@ -312,8 +312,8 @@ class SOL:
                 end time of the subjects
         saved in SOL_Tc_stats.csv
         '''
-        start_time  = self.metafile.get_subjectkeyvalue_by_solstandard(SOL_event, 'startDate')
-        end_time    = self.metafile.get_subjectkeyvalue_by_solstandard(SOL_event, 'endDate')
+        start_time = self.metafile.get_subjectkeyvalue_by_solstandard(SOL_event, 'startDate')
+        end_time = self.metafile.get_subjectkeyvalue_by_solstandard(SOL_event, 'endDate')
 
         return start_time, end_time
 
@@ -329,7 +329,7 @@ class SOL:
             files : np.array
                 get an array of the filenames of the subject in the SOL event
         '''
-        files   = self.metafile.get_subjectkeyvalue_by_solstandard(SOL_event, '#file_name_0')
+        files = self.metafile.get_subjectkeyvalue_by_solstandard(SOL_event, '#file_name_0')
         return files
 
     def event_box_plot(self, SOL_event):
@@ -433,7 +433,7 @@ class SOL:
         labels = -1. * np.ones(len(jets))
         subjects = np.asarray([jet.subject for jet in jets])
 
-        #print(f"Using eps={eps} and time_eps={time_eps*30} min")
+        # print(f"Using eps={eps} and time_eps={time_eps*30} min")
 
         while len(indices) > 0:
             ind = indices[0]
