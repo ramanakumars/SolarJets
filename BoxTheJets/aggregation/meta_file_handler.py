@@ -27,7 +27,7 @@ def convert_fileName_to_datetime(fileName: str):
         return ''
     
 
-def create_metadata_jsonfile(subject,subjectsdata):
+def create_subjectinfo(subject,subjectsdata):
     '''
         Takes a Zooniverse subjectsdata and makes a reduced meta dictionary containing chosen keys only
         Inputs
@@ -86,9 +86,51 @@ def create_metadata_jsonfile(subject,subjectsdata):
         except:
             print(f"something went wrong while writing subject {subject}")
             return {}
+        
+def create_allmetadata_subjectinfo(subject,subjectsdata):
+    '''
+        Takes a Zooniverse subjectsdata and makes a meta dictionary containing all keys
+        'width', 'cdelt1', 'cdelt2', 'crota2', 'crpix1', 'crpix2', 'crval1', 'crval2', 'cunit1', 'cunit2', height', 'naxis1', 'naxis2'
+        'ssw_id', 'im_ll_x', 'im_ll_y', 'im_ur_x', 'im_ur_y', 'description', 'event_db_id',  'sol_standard', 'frame_per_sub', 'stddev_crota2'
+        'vis_db_0', 'vis_db_1', 'vis_db_2', 'vis_db_3', 'vis_db_4', 'vis_db_5', 'vis_db_6', 'vis_db_7', 'vis_db_8', 'vis_db_9', 'vis_db_10', 'vis_db_11', 'vis_db_12', 'vis_db_13', 'vis_db_14'
+        'fits_db_0', 'fits_db_1', 'fits_db_2', 'fits_db_3', 'fits_db_4', 'fits_db_5', 'fits_db_6', 'fits_db_7', 'fits_db_8', 'fits_db_9', 'fits_db_10', 'fits_db_11', 'fits_db_12', 'fits_db_13', 'fits_db_14'
+        'file_name_0', 'file_name_1', 'file_name_2', 'file_name_3', 'file_name_4', 'file_name_5', 'file_name_6', 'file_name_7', 'file_name_8', 'file_name_9', 'visual_type', 'file_name_10', 'file_name_11', 'file_name_12', 'file_name_13', 'file_name_14'
+        Inputs
+        ------
+        subject: int
+            Zooniverse subject ID
+        subjectsdata: astropy.table.table.Table
+            data Table with Zooniverse metadata keys ['subject_id','metadata']
+        Outputs
+        ------
+        wantedDict: dict
+            dictionary of the renamed keys metadata for the given subject
+    '''
+
+    try: 
+        allData = json.loads(subjectsdata[subjectsdata['subject_id']==subject][-1]['metadata'])
+        wantedDict = wantedDict = {key[1:]: allData[key] for key in allData.keys()}
+        wantedDict['startDate'] = str(convert_fileName_to_datetime(wantedDict['#file_name_0']))
+        wantedDict['endDate'] = str(convert_fileName_to_datetime(wantedDict['#file_name_14']))
+        wantedDict['#width'] = float(wantedDict['#width'])
+        wantedDict['#height'] = float(wantedDict['#height'])
+        del allData #does this help memory management?
+        return wantedDict
+    except:
+        print('')
+        print(f"Not all metadata available for subject {subject} atempting to gather minimal information")
+        try:
+            allData = json.loads(subjectsdata[subjectsdata['subject_id']==subject][-1]['metadata'])
+            reducedwantedDict = {key: allData[key] for key in ["#file_name_0","#file_name_14","#sol_standard"]}
+            reducedwantedDict['startDate'] = str(convert_fileName_to_datetime(reducedwantedDict['#file_name_0']))
+            reducedwantedDict['endDate'] = str(convert_fileName_to_datetime(reducedwantedDict['#file_name_14']))
+            return reducedwantedDict
+        except:
+            print(f"something went wrong while writing subject {subject}")
+            return {}
 
 
-def create_subjectinfo(filename :str, subjectstoloop : np.array, subjectsdata):
+def create_metadata_jsonfile(filename :str, subjectstoloop : np.array, subjectsdata):
     '''
         Write out the metadata file for a given set of subjectstoloop to filename
         Inputs

@@ -58,7 +58,7 @@ cd ..
 
 ### Run the aggregation on the T0 and T3 files
 ``` bash
-python3 make_make_reducer_combined.py
+python3 make_reducer_combined.py
 ```
 
 This combines the binary resulting of the first workflow and second workflow questions to make the combined answers. This creates the 'question_reducer_combined_workflows.csv' in the main directory.   
