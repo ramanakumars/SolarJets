@@ -57,9 +57,9 @@ def create_gif(subject, outfile):
         img = get_subject_image(subject, i)
 
         # plot the image
-        #im1 = ax.imshow(img)
+        # im1 = ax.imshow(img)
         im1.set_array(img)
-        
+
         # combine all the plot artists together
         return [im1]
 
