@@ -146,7 +146,7 @@ def json_import_list(input_file):
         cluster_obj = JetCluster(jets_list)
         cluster_obj.ID = json_obj['id']
         cluster_obj.SOL = json_obj['SOL']
-        cluster_obj.Duration = json_obj['duration']
+        cluster_obj.duration = json_obj['duration']
         cluster_obj.obs_time = np.datetime64(json_obj['obs_time'])
 
         cluster_obj.Bx = json_obj['Bx']['mean']
@@ -155,10 +155,10 @@ def json_import_list(input_file):
         cluster_obj.By = json_obj['By']['mean']
         cluster_obj.std_By = json_obj['By']['std']
 
-        cluster_obj.Lat = json_obj['lat']
-        cluster_obj.Lon = json_obj['lon']
+        cluster_obj.lat = json_obj['lat']
+        cluster_obj.lon = json_obj['lon']
 
-        cluster_obj.Max_Height = json_obj['max_height']['mean']
+        cluster_obj.max_height = json_obj['max_height']['mean']
         try:
             cluster_obj.std_maxH = np.array(
                 [json_obj['max_height'][i] for i in ['std_upper', 'std_lower']])
@@ -166,15 +166,15 @@ def json_import_list(input_file):
             print(e)
             cluster_obj.std_maxH = np.array([np.nan, np.nan])
 
-        cluster_obj.Width = json_obj['width']['mean']
+        cluster_obj.width = json_obj['width']['mean']
         cluster_obj.std_W = json_obj['width']['std']
 
         cluster_obj.sigma = json_obj['sigma']
 
         if 'velocity' in json_obj:
-            cluster_obj.Velocity = json_obj['velocity']
+            cluster_obj.velocity = json_obj['velocity']
         else:
-            cluster_obj.Velocity = np.nan
+            cluster_obj.velocity = np.nan
 
         if 'flag' in json_obj:
             cluster_obj.flag = json_obj['flag']
