@@ -40,12 +40,12 @@ panoptes_aggregation config ../solar-jet-hunter-workflows.csv 19650
 `Reducer_config_workflow_19650_V4.52_shape_extractor_rotateRectangle.yaml`:
 ```yaml
 reducer_config:
-    shape_reducer_hdbscan:
+    shape_reducer_dbscan:
         shape: rotateRectangle
-        min_cluster_size: 2
-        min_samples: 2
+        min_samples: 3
         allow_single_cluster: True
         metric_type: IoU
+        eps: 0.6
 ```
 
 

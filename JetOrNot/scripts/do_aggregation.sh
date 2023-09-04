@@ -14,6 +14,6 @@ cd ../reductions/
 panoptes_aggregation reduce ../extracts/question_extractor_trimmed.csv \
 	../configs/Reducer_config_workflow_18563_V5.19_question_extractor.yaml -o jet_or_not
 
-# finally create the CSV files for the subject agreement
+# finally create the json metafile from the solar-jet-hunter-subjects.csv
 cd ../
-python3 scripts/make_T0_csvfiles.py
+python3 scripts/make_metafile.py

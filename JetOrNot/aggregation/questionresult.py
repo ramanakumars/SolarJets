@@ -3,26 +3,53 @@ import matplotlib.pyplot as plt
 import datetime
 from panoptes_client import Panoptes, Subject, Workflow
 from dateutil.parser import parse
+from astropy.io import ascii
 import csv
 
 class QuestionResult:
     '''
         Data class to handle all binary question answers given by the volunteers
     '''
-    def __init__(self, data):
+    def __init__(self, path_to_csv):
         '''
             Inputs
             ------
-            data : csv-file
+            path_to_csv : path to csv-file
                     Rows contain the question_reducer_jet_or_not.csv
                     with columns data.yes and data.no for each subject 
 
         '''
-        data['data.yes'].fill_value = 0
-        data['data.no'].fill_value = 0
-        self.data = data.filled()
+        try:
+            data = ascii.read(path_to_csv, format='csv')
+            data['data.yes'].fill_value = 0
+            data['data.no'].fill_value = 0
+
+        except KeyError:
+            data = ascii.read(path_to_csv, format='csv')
+            data.rename_column('data.no-there-are-no-jets-in-this-image-sequence', 'data.no')
+            data.rename_column('data.yes-there-is-at-least-one-jet-in-this-image-sequence', 'data.yes')
+            data['data.yes'].fill_value = 0
+            data['data.no'].fill_value = 0
+            self.data = data.filled()
         
-    def Agr_mask(self):
+        except Exception as error:
+            # handle the exception
+            print("An exception occurred:", error)
+            return
+
+        self.data = data.filled()
+        self.subjects = np.asarray(data['subject_id'])
+        
+    def get_data_by_id(self,subjectid):
+        subject_data=self.data[self.subjects==subjectid]
+        return subject_data
+    
+    def get_data_by_idlist(self,list_subjects):
+        index=[np.where(self.subjects==x)[0][0] for x in list_subjects]
+        subjects_data=self.data[index]
+        return subjects_data
+
+    def Agr_mask(self,data):
         '''
         Find the agreement between the volunteers for the Jet or Not question
         Output
@@ -36,8 +63,8 @@ class QuestionResult:
             Ans : np.array
                 the most given answer as given by the volunteers either 'y' or 'n'
         '''
-        num_votes = np.asarray(self.data['data.no']) + np.asarray(self.data['data.yes'])
-        counts    = np.asarray(np.dstack([self.data['data.yes'], self.data['data.no']])[0])
+        num_votes = np.asarray(data['data.no']) + np.asarray(data['data.yes'])
+        counts    = np.asarray(np.dstack([data['data.yes'], data['data.no']])[0])
         most_likely  = np.argmax(counts, axis=1)
 
         value_yes = most_likely==0
@@ -51,10 +78,8 @@ class QuestionResult:
         agreement = np.asarray(agreement) #The order of agreement is in the order of the subjects
 
         jet_mask = most_likely==0
-        jet_subjects = self.data['subject_id'][jet_mask]
         non_jet_mask = most_likely==1
-        non_jet_subjects = self.data['subject_id'][non_jet_mask]
-        Ans=np.zeros(len(self.data['subject_id']),dtype=str)
+        Ans=np.zeros(len(data),dtype=str)
         Ans[jet_mask]='y'
         Ans[non_jet_mask]='n'
 
