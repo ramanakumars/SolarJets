@@ -1,6 +1,4 @@
 import numpy as np
-from shapely.geometry import Polygon
-from .shape_utils import get_box_edges, sigma_shape
 
 
 class Jet:
@@ -19,17 +17,11 @@ class Jet:
 
         self.cluster_values = cluster_values
 
-        self.box_extracts = {'x': [], 'y': [], 'w': [], 'h': [], 'a': []}
-        self.start_extracts = {'x': [], 'y': []}
-        self.end_extracts = {'x': [], 'y': []}
+        self.box_extracts = []
+        self.start_extracts = []
+        self.end_extracts = []
 
         self.autorotate()
-
-    def adding_new_attr(self, name_attr, value_attr):
-        '''
-            Add an additional attribute of value value_attr and name name_attr to the jet object
-        '''
-        setattr(self, name_attr, value_attr)
 
     def get_extract_starts(self):
         '''
@@ -42,10 +34,7 @@ class Jet:
                 coordinates of the base points from the extracts
                 for the start frame
         '''
-        x_s = self.start_extracts['x']
-        y_s = self.start_extracts['y']
-
-        return np.transpose([x_s, y_s])
+        return np.asarray([[p.x, p.y] for p in self.start_extracts])
 
     def get_extract_ends(self):
         '''
@@ -58,10 +47,8 @@ class Jet:
                 coordinates of the base points from the extracts
                 for the final frame
         '''
-        x_e = self.end_extracts['x']
-        y_e = self.end_extracts['y']
 
-        return np.transpose([x_e, y_e])
+        return np.asarray([[p.x, p.y] for p in self.end_extracts])
 
     def get_extract_boxes(self):
         '''
@@ -74,18 +61,7 @@ class Jet:
                 List of `shapely.Polygon` objects corresponding
                 to individual boxes in the extracts
         '''
-        boxes = []
-        for i in range(len(self.box_extracts['x'])):
-            x = self.box_extracts['x'][i]
-            y = self.box_extracts['y'][i]
-            w = self.box_extracts['w'][i]
-            h = self.box_extracts['h'][i]
-            a = np.radians(self.box_extracts['a'][i])
-
-            # get the box
-            boxes.append(Polygon(get_box_edges(x, y, w, h, a)[:4]))
-
-        return boxes
+        return [box.get_polygon() for box in self.box_extracts]
 
     def plot(self, ax, plot_sigma=True):
         '''
@@ -127,7 +103,7 @@ class Jet:
                 ax.plot(*box.exterior.xy, 'k-', linewidth=0.5, alpha=0.65 * iou + 0.05)[0])
 
         # find the center of the box, so we can draw a vector through it
-        center = np.mean(np.asarray(self.box.exterior.xy)[:, :4], axis=1)
+        center = np.mean(self.box.get_box_edges()[:, :4], axis=1)
 
         # create the rotation matrix to rotate a vector from solar north tos
         # the direction of the jet
@@ -144,24 +120,6 @@ class Jet:
 
         arrowplot = ax.arrow(
             *point0, vec[0], vec[1], color='white', width=2, length_includes_head=True, head_width=10)
-
-        if plot_sigma:
-            if hasattr(self, 'sigma'):
-                # calculate the bounding box for the cluster confidence
-                plus_sigma, minus_sigma = sigma_shape(
-                    self.cluster_values, self.sigma)
-
-                # get the boxes edges
-                plus_sigma_box = get_box_edges(*plus_sigma)
-                minus_sigma_box = get_box_edges(*minus_sigma)
-
-                # create a fill between the - and + sigma boxes
-                x_p = plus_sigma_box[:, 0]
-                y_p = plus_sigma_box[:, 1]
-                x_m = minus_sigma_box[:, 0]
-                y_m = minus_sigma_box[:, 1]
-                ax.fill(
-                    np.append(x_p, x_m[::-1]), np.append(y_p, y_m[::-1]), color='white', alpha=0.3)
 
         return [boxplot, startplot, endplot, startextplot, endextplot, *boxextplots, arrowplot]
 

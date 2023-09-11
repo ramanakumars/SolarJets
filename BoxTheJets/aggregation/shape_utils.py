@@ -1,73 +1,102 @@
 import numpy as np
 from dataclasses import dataclass
+from shapely.geometry import Polygon
 from panoptes_aggregation.reducers.shape_metric_IoU import IoU_metric
 
 
-def get_box_edges(x, y, w, h, a):
+@dataclass
+class BasePoint:
+    x: float
+    y: float
+    displayTime: float
+    subject_id: int
+    probability: float = 0
+
+
+@dataclass
+class Box:
+    xcenter: float
+    ycenter: float
+    width: float
+    height: float
+    angle: float
+    displayTime: float
+    subject_id: int
+    probability: float = 0
+
+    def get_box_edges(self):
+        '''
+            Return the corners of the box given one corner, width, height
+            and angle
+
+            Outputs
+            --------
+            corners : numpy.ndarray
+                Length 4 array with coordinates of the box edges
+        '''
+        centre = np.array([self.xcenter, self.ycenter])
+        original_points = np.array(
+            [
+                [self.xcenter - 0.5 * self.width, self.ycenter - 0.5 * self.height],  # This would be the box if theta = 0
+                [self.xcenter + 0.5 * self.width, self.ycenter - 0.5 * self.height],
+                [self.xcenter + 0.5 * self.width, self.ycenter + 0.5 * self.height],
+                [self.xcenter - 0.5 * self.width, self.ycenter + 0.5 * self.height],
+                # repeat the first point to close the loop
+                [self.xcenter - 0.5 * self.width, self.ycenter - 0.5 * self.height]
+            ]
+        )
+        rotation = np.array([[np.cos(self.angle), np.sin(self.angle)], [-np.sin(self.angle), np.cos(self.angle)]])
+        corners = np.matmul(original_points - centre, rotation) + centre
+        return corners
+
+    def get_shapely_polygon(self):
+        return Polygon(*self.get_box_edges())
+
+    def get_plus_minus_sigma(self, sigma):
+        # calculate the bounding box for the cluster confidence
+        plus_sigma, minus_sigma = sigma_shape(
+            [self.xcenter, self.ycenter, self.width, self.height, self.angle], sigma)
+
+        plus_box = Box(*plus_sigma, self.displayTime, self.subject_id)
+        minus_box = Box(*minus_sigma, self.displayTime, self.subject_id)
+
+        return plus_box.get_box_edges(), minus_box.get_box_edges()
+
+    @property
+    def extract_IoU(self):
+        if not hasattr(self, '_extract_IoU'):
+            if not hasattr(self, 'extracts'):
+                raise ValueError('Box does not have extracts!')
+            IoUs = []
+            for extract in self.extracts:
+                IoUs.append(1. - IoU_metric([self.xcenter, self.ycenter, self.width, self.height, self.angle, self.displayTime],
+                                            [extract.xcenter, extract.ycenter, extract.width, extract.height, extract.angle, extract.displayTime],
+                                            'temporalRotateRectangle'))
+            self._extract_IoU = np.mean(IoUs)
+
+        return self._extract_IoU
+
+
+def get_point_distance(p1: BasePoint, p2: BasePoint) -> float:
     '''
-        Return the corners of the box given one corner, width, height
-        and angle
+        Get Euclidiean distance between two points p1 and p2
 
         Inputs
         ------
-        x : float
-            Box left bottom edge x-coordinate
-        y : float
-            Box left bottom edge y-coordinate
-        w : float
-            Box width
-        h : float
-            Box height
-        a : flat
-            Rotation angle
-
-        Outputs
-        --------
-        corners : numpy.ndarray
-            Length 4 array with coordinates of the box edges
-    '''
-    cx = (2 * x + w) / 2
-    cy = (2 * y + h) / 2
-    centre = np.array([cx, cy])
-    original_points = np.array(
-        [
-            [cx - 0.5 * w, cy - 0.5 * h],  # This would be the box if theta = 0
-            [cx + 0.5 * w, cy - 0.5 * h],
-            [cx + 0.5 * w, cy + 0.5 * h],
-            [cx - 0.5 * w, cy + 0.5 * h],
-            # repeat the first point to close the loop
-            [cx - 0.5 * w, cy - 0.5 * h]
-        ]
-    )
-    rotation = np.array([[np.cos(a), np.sin(a)], [-np.sin(a), np.cos(a)]])
-    corners = np.matmul(original_points - centre, rotation) + centre
-    return corners
-
-
-def get_point_distance(x0, y0, x1, y1):
-    '''
-        Get Euclidiean distance between two points (x0, y0) and (x1, y1)
-
-        Inputs
-        ------
-        x0 : float
-            First point x-coordinate
-        y0 : float
-            First point y-coordinate
-        x1 : float
-            Second point x-coordinate
-        y1 : float
-            Second point y-coordinate
+        p1: BasePoint
+            BasePoint object for the first point
+        p2: BasePoint
+            BasePoint object for the second point
 
         Outputs
         --------
         dist : float
             Euclidian distance between (x0, y0) and (x1, y1)
     '''
-    return np.sqrt((x0 - x1)**2. + (y0 - y1)**2.)
+    return np.sqrt((p1.x - p2.x)**2. + (p1.y - p2.y)**2.)
 
 
-def get_box_distance(box1, box2):
+def get_box_distance(box1: Box, box2: Box) -> float:
     '''
         Get point-wise distance betweeen 2 boxes.
         Calculates and find the average distance between each edge
@@ -75,9 +104,9 @@ def get_box_distance(box1, box2):
 
         Inputs
         ------
-        box1 : list
+        box1 : Box
             parameters corresponding to the first box (see `get_box_edges`)
-        box2 : list
+        box2 : Box
             parameters corresponding to the second box (see `get_box_edges`)
 
         Outputs
@@ -85,8 +114,8 @@ def get_box_distance(box1, box2):
         dist : float
             Average point-wise distance between the two box edges
     '''
-    b1_edges = get_box_edges(*box1)[:4]
-    b2_edges = get_box_edges(*box2)[:4]
+    b1_edges = box1.get_box_edges()[:4]
+    b2_edges = box2.get_box_edges()[:4]
 
     # build a distance matrix between the 4 edges
     # since the order of edges may not be the same
@@ -159,63 +188,3 @@ def sigma_shape(params, sigma):
     plus_sigma = scale_shape(params, 1 / gamma)
     minus_sigma = scale_shape(params, gamma)
     return plus_sigma, minus_sigma
-
-
-@dataclass
-class BasePoint:
-    x: float
-    y: float
-    displayTime: float
-    subject_id: int
-    probability: float = 0
-
-
-@dataclass
-class Box:
-    xcenter: float
-    ycenter: float
-    width: float
-    height: float
-    angle: float
-    displayTime: float
-    subject_id: int
-    probability: float = 0
-
-    def get_box_edges(self):
-        '''
-            Return the corners of the box given one corner, width, height
-            and angle
-
-            Outputs
-            --------
-            corners : numpy.ndarray
-                Length 4 array with coordinates of the box edges
-        '''
-        centre = np.array([self.xcenter, self.ycenter])
-        original_points = np.array(
-            [
-                [self.xcenter - 0.5 * self.width, self.ycenter - 0.5 * self.height],  # This would be the box if theta = 0
-                [self.xcenter + 0.5 * self.width, self.ycenter - 0.5 * self.height],
-                [self.xcenter + 0.5 * self.width, self.ycenter + 0.5 * self.height],
-                [self.xcenter - 0.5 * self.width, self.ycenter + 0.5 * self.height],
-                # repeat the first point to close the loop
-                [self.xcenter - 0.5 * self.width, self.ycenter - 0.5 * self.height]
-            ]
-        )
-        rotation = np.array([[np.cos(self.angle), np.sin(self.angle)], [-np.sin(self.angle), np.cos(self.angle)]])
-        corners = np.matmul(original_points - centre, rotation) + centre
-        return corners
-
-    @property
-    def extract_IoU(self):
-        if not hasattr(self, '_extract_IoU'):
-            if not hasattr(self, 'extracts'):
-                raise TypeError('Box does not have extracts!')
-            IoUs = []
-            for extract in self.extracts:
-                IoUs.append(1. - IoU_metric([self.xcenter, self.ycenter, self.width, self.height, self.angle, self.displayTime],
-                                            [extract.xcenter, extract.ycenter, extract.width, extract.height, extract.angle, extract.displayTime],
-                                            'temporalRotateRectangle'))
-            self._extract_IoU = np.mean(IoUs)
-
-        return self._extract_IoU

@@ -6,7 +6,7 @@ import tqdm
 import json
 from shapely.geometry import Polygon, Point
 from .jet import Jet
-from .shape_utils import get_box_edges, get_point_distance, sigma_shape, BasePoint, Box
+from .shape_utils import sigma_shape, BasePoint, Box, get_point_distance
 from .zoo_utils import get_subject_image
 
 
@@ -248,27 +248,6 @@ class Aggregator:
             for key in ['x', 'y', 'w', 'h', 'a', 'sigma']:
                 clusters[key] = np.asarray([])
         clusters['labels'] = np.asarray(box_data['box']['extracts']['cluster_labels'])
-        try:
-            clusters['prob'] = box_data['box']['extracts']['cluster_probabilities']
-        except KeyError:
-            # OPTICS cluster doesn't have probabilities
-            probs = np.zeros(len(data['x']))
-            for i in range(len(data['x'])):
-                labeli = clusters['labels'][i]
-                if labeli == -1:
-                    probs[i] = 0
-                else:
-                    boxi_data = Polygon(get_box_edges(data['x'][i], data['y'][i],
-                                                      data['w'][i], data['h'][i],
-                                                      np.radians(data['a'][i]))[:4])
-                    boxi_clust = Polygon(get_box_edges(clusters['x'][labeli], clusters['y'][labeli],
-                                                       clusters['w'][labeli], clusters['h'][labeli],
-                                                       np.radians(clusters['a'][labeli]))[:4])
-
-                    probs[i] = boxi_data.intersection(
-                        boxi_clust).area / boxi_data.union(boxi_clust).area
-            clusters['prob'] = probs
-
         return data, clusters
 
     def plot_subject_both(self, subject):
@@ -358,26 +337,22 @@ class Aggregator:
         ax.scatter(cx0_i, cy0_i, 10.0, marker='x', color='blue')
         ax.scatter(cx1_i, cy1_i, 10.0, marker='x', color='yellow')
 
+        raw_boxes = [Box(x_i[j], y_i[j], w_i[j], h_i[j], np.radians(a_i[j]), 0, subject, pb_i[j]) for j in range(len(x_i))]
+        cluster_boxes = [Box(cx_i[j], cy_i[j], cw_i[j], ch_i[j], np.radians(ca_i[j]), 0, subject, 1.) for j in range(len(cx_i))]
+
         # plot the raw boxes with a gray line
-        for j in range(len(x_i)):
-            points = get_box_edges(
-                x_i[j], y_i[j], w_i[j], h_i[j], np.radians(a_i[j]))
-            linewidthi = 0.2 * pb_i[j] + 0.1
+        for box in raw_boxes:
+            points = box.get_box_edges()
+            linewidthi = 0.2 * box.probability + 0.1
             ax.plot(points[:, 0], points[:, 1], '-',
                     color='limegreen', linewidth=linewidthi)
 
         # plot the clustered box in blue
-        for j in range(len(cx_i)):
-            clust = get_box_edges(
-                cx_i[j], cy_i[j], cw_i[j], ch_i[j], np.radians(ca_i[j]))
+        for j, box in enumerate(cluster_boxes):
+            clust = box.get_box_edges()
 
-            # calculate the bounding box for the cluster confidence
-            plus_sigma, minus_sigma = sigma_shape(
-                [cx_i[j], cy_i[j], cw_i[j], ch_i[j], np.radians(ca_i[j])], sg_i[j])
-
-            # get the boxes edges
-            plus_sigma_box = get_box_edges(*plus_sigma)
-            minus_sigma_box = get_box_edges(*minus_sigma)
+            # get the boxes edges for the scaled shape
+            plus_sigma_box, minus_sigma_box = box.get_plus_minus_sigma(sg_i[j])
 
             # create a fill between the - and + sigma boxes
             x_p = plus_sigma_box[:, 0]

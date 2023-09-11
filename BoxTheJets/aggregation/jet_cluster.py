@@ -11,18 +11,6 @@ class JetCluster:
         '''
         self.jets = jets
 
-    def adding_new_attr(self, name_attr, value_attr):
-        '''
-            Add new attributes to the JetCluster
-        Inputs
-        ------
-            name_attr: str
-                name of the to be added property
-            value_attr: any
-                value of the to be added property
-        '''
-        setattr(self, name_attr, value_attr)
-
     def create_gif(self, output):
         '''
             Create a gif of the jet objects showing the
