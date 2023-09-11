@@ -1,4 +1,5 @@
 import json
+import tqdm
 import datetime
 import numpy as np
 from dateutil.parser import parse
@@ -157,9 +158,7 @@ def create_metadata_jsonfile(filename: str, subjectstoloop: np.array, subjectsda
     '''
     file = open(filename, 'w')
     file.write('[')
-    for i, subject in enumerate(subjectstoloop):
-        print("\r [%-40s] %d/%d" %
-              (int(i / len(subjectstoloop) * 40) * '=', i + 1, len(subjectstoloop)), end='')
+    for i, subject in enumerate(tqdm.tqdm(subjectstoloop, ascii=True, desc='Writing subjects to JSON')):
         subjectDict = {}
         subjectDict['subjectId'] = int(subject)
         subjectDict['data'] = create_subjectinfo(subject, subjectsdata)
