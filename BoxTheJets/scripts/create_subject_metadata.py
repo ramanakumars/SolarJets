@@ -15,4 +15,4 @@ metadatafile = pd.read_csv('../solar-jet-hunter-subjects.csv').to_dict(orient='l
 for key in metadatafile.keys():
     metadatafile[key] = np.asarray(metadatafile[key])
 
-create_metadata_jsonfile('../Meta_data_subjects.json', subjects, metadatafile)
+create_metadata_jsonfile('../solar_jet_hunter_subject_metadata.json', subjects, metadatafile)
