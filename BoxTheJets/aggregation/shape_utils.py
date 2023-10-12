@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from shapely.geometry import Polygon
 from panoptes_aggregation.reducers.shape_metric_IoU import IoU_metric
 
+EPS_T = 0.4
+
 
 @dataclass
 class BasePoint:
@@ -11,6 +13,47 @@ class BasePoint:
     displayTime: float
     subject_id: int
     probability: float = 0
+
+    def to_dict(self):
+        data = {}
+        data['subject_id'] = self.subject_id
+        data['x'] = self.x
+        data['y'] = self.y
+        data['displayTime'] = self.displayTime
+        data['probability'] = self.probability
+
+        if hasattr(self, 'extracts'):
+            data['extracts'] = [ext.to_dict() for ext in self.extracts]
+
+        return data
+
+    @classmethod
+    def from_dict(cls, data):
+        obj = cls(x=data['x'], y=data['y'], displayTime=data['displayTime'], subject_id=data['subject_id'], probability=data['probability'])
+
+        if 'extracts' in data:
+            obj.extracts = []
+            for extract in data['extracts']:
+                ext = cls(x=extract['x'], y=extract['y'], displayTime=extract['displayTime'], subject_id=extract['subject_id'], probability=extract['probability'])
+                obj.append(ext)
+
+        return obj
+
+    @property
+    def coordinate(self):
+        return np.asarray([self.x, self.y])
+
+    @property
+    def extract_dists(self):
+        if not hasattr(self, '_extract_dists'):
+            if not hasattr(self, 'extracts'):
+                raise ValueError('Point does not have extracts!')
+            dists = []
+            for extract in self.extracts:
+                dists.append(get_point_distance(self, extract))
+            self._extract_dists = np.mean(dists)
+
+        return self._extract_dists
 
 
 @dataclass
@@ -23,6 +66,36 @@ class Box:
     displayTime: float
     subject_id: int
     probability: float = 0
+
+    def to_dict(self):
+        data = {}
+        data['subject_id'] = self.subject_id
+        data['xcenter'] = self.xcenter
+        data['ycenter'] = self.ycenter
+        data['width'] = self.width
+        data['height'] = self.height
+        data['angle'] = self.angle
+        data['displayTime'] = self.displayTime
+        data['probability'] = self.probability
+
+        if hasattr(self, 'extracts'):
+            data['extracts'] = [ext.to_dict() for ext in self.extracts]
+
+        return data
+
+    @classmethod
+    def from_dict(cls, data):
+        obj = cls(xcenter=data['xcenter'], ycenter=data['ycenter'], width=data['width'], height=data['height'],
+                  angle=data['angle'], displayTime=data['displayTime'], subject_id=data['subject_id'], probability=data['probability'])
+
+        if 'extracts' in data:
+            obj.extracts = []
+            for extract in data['extracts']:
+                ext = cls(xcenter=extract['xcenter'], ycenter=extract['ycenter'], width=extract['width'], height=extract['height'],
+                          angle=extract['angle'], displayTime=extract['displayTime'], subject_id=extract['subject_id'], probability=extract['probability'])
+                obj.append(ext)
+
+        return obj
 
     def get_box_edges(self):
         '''
@@ -50,7 +123,7 @@ class Box:
         return corners
 
     def get_shapely_polygon(self):
-        return Polygon(*self.get_box_edges())
+        return Polygon(self.get_box_edges())
 
     def get_plus_minus_sigma(self, sigma):
         # calculate the bounding box for the cluster confidence
@@ -63,6 +136,10 @@ class Box:
         return plus_box.get_box_edges(), minus_box.get_box_edges()
 
     @property
+    def params(self):
+        return [self.xcenter, self.ycenter, self.width, self.height, self.angle, self.displayTime]
+
+    @property
     def extract_IoU(self):
         if not hasattr(self, '_extract_IoU'):
             if not hasattr(self, 'extracts'):
@@ -71,7 +148,7 @@ class Box:
             for extract in self.extracts:
                 IoUs.append(1. - IoU_metric([self.xcenter, self.ycenter, self.width, self.height, self.angle, self.displayTime],
                                             [extract.xcenter, extract.ycenter, extract.width, extract.height, extract.angle, extract.displayTime],
-                                            'temporalRotateRectangle'))
+                                            'temporalRotateRectangle', EPS_T))
             self._extract_IoU = np.mean(IoUs)
 
         return self._extract_IoU
@@ -130,6 +207,10 @@ def get_box_distance(box1: Box, box2: Box) -> float:
     mindist = dists.min(axis=0)
 
     return np.average(mindist)
+
+
+def get_box_iou(box1: Box, box2: Box) -> float:
+    return 1 - IoU_metric(box1.params, box2.params, 'temporalRotateRectangle', EPS_T)
 
 
 def scale_shape(params, gamma):
