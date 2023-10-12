@@ -1,7 +1,6 @@
 import json
 import numpy as np
 from shapely.geometry import Polygon
-from .shape_utils import get_box_edges
 from .jet import Jet
 from .jet_cluster import JetCluster
 import matplotlib.pyplot as plt
