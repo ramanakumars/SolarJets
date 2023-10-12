@@ -219,7 +219,7 @@ class SOL:
                 meta data json file
                 Contains selected meta data for each subject as saved in Zooniverse
                 keys: {"startDate", "endDate", "#file_name_0","#file_name_14","#sol_standard", "#width", "#height",
-                  "#naxis1", "#naxis2",  "#cunit1", "#cunit2", "#crval1","#crval2", "#cdelt1", "#cdelt2", 
+                  "#naxis1", "#naxis2",  "#cunit1", "#cunit2", "#crval1","#crval2", "#cdelt1", "#cdelt2",
                   "#crpix1", "#crpix2","#crota2", "#im_ll_x","#im_ll_y","#im_ur_x","#im_ur_y"}
         '''
 
