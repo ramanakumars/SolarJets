@@ -1,4 +1,5 @@
 import numpy as np
+from .shape_utils import BasePoint, Box
 
 
 class Jet:
@@ -9,19 +10,30 @@ class Jet:
         extracts
     '''
 
-    def __init__(self, subject, start, end, box, cluster_values):
-        self.subject = subject
-        self.start = start
-        self.end = end
-        self.box = box
+    def __init__(self, subject: int, start: BasePoint, end: BasePoint, box: Box):
+        self.subject: int = subject
+        self.start: BasePoint = start
+        self.end: BasePoint = end
+        self.box: Box = box
 
-        self.cluster_values = cluster_values
+        # self.autorotate()
 
-        self.box_extracts = []
-        self.start_extracts = []
-        self.end_extracts = []
+    def to_dict(self):
+        data = {}
+        data['subject_id'] = self.subject
+        data['start'] = self.start.to_dict()
+        data['end'] = self.end.to_dict()
+        data['box'] = self.box.to_dict()
 
-        self.autorotate()
+        return data
+
+    @classmethod
+    def from_dict(cls, data):
+        start = BasePoint.from_dict(data['start'])
+        end = BasePoint.from_dict(data['end'])
+        box = Box.from_dict(data['box'])
+
+        return cls(subject=data['subject_id'], start=start, end=end, box=box)
 
     def get_extract_starts(self):
         '''
@@ -34,7 +46,7 @@ class Jet:
                 coordinates of the base points from the extracts
                 for the start frame
         '''
-        return np.asarray([[p.x, p.y] for p in self.start_extracts])
+        return np.asarray([p.coordinates for p in self.start_extracts])
 
     def get_extract_ends(self):
         '''
@@ -48,7 +60,7 @@ class Jet:
                 for the final frame
         '''
 
-        return np.asarray([[p.x, p.y] for p in self.end_extracts])
+        return np.asarray([p.coordinates for p in self.end_extracts])
 
     def get_extract_boxes(self):
         '''
@@ -128,7 +140,7 @@ class Jet:
             Find the rotation of the jet wrt to solar north and
             find the base width and height of the box
         '''
-        box_points = np.transpose(self.box.exterior.xy)[:4, :]
+        box_points = np.transpose(self.box.get_box_edges())[:4, :]
 
         # find the distance between each point and the starting base
         dists = [np.linalg.norm((point - self.start)) for point in box_points]
