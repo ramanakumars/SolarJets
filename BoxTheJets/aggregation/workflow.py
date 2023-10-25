@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import ast
 import tqdm
 import json
-from shapely.geometry import Polygon, Point
+from shapely.geometry import Point
 from .jet import Jet
 from .shape_utils import BasePoint, Box, get_point_distance, get_box_iou
 from .zoo_utils import get_subject_image
