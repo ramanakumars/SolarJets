@@ -1,34 +1,30 @@
 import numpy
-import json
-
 import astropy.units as u
-
-from panoptes_client import Subject
 from sunpy.map import Map
 
 
 def solar_conversion(sub, x, y, metadata):
     '''
-    Convert from pixel coordinates in the Zooniverse subjects to solar coordinates 
+    Convert from pixel coordinates in the Zooniverse subjects to solar coordinates
         Inputs
         ------
         sub : int
             subject id of the Zooniverse subject
-        x : str or int or float 
-            x pixel location 
+        x : str or int or float
+            x pixel location
         y : str or int or float
             y pixel location
 
         Output
         ------
-        x_sun : float 
+        x_sun : float
             Solar X loaction in arcsec
-        y_sun : float 
+        y_sun : float
             Solar Y loaction in arcsec
     '''
 
     # Change de Y pixels to Height-Y since the pixel frame is defined inverted from the Zooniverse processor calculation
-    y = float(metadata['#height'])-y
+    y = float(metadata['#height']) - y
 
     # Convert coordinates using sunpy
     wc = world_from_pixel(sub, float(x), float(y), metadata)
