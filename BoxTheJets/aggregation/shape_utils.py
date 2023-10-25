@@ -1,9 +1,14 @@
 import numpy as np
+import os
 from dataclasses import dataclass
 from shapely.geometry import Polygon
 from panoptes_aggregation.reducers.shape_metric_IoU import IoU_metric
+import yaml
 
-EPS_T = 0.4
+
+with open(os.path.join(os.path.split(__file__)[0], '..',
+                       'configs/Reducer_config_workflow_21225_V50.59_shapeExtractor_temporalRotateRectangle.yaml'), 'r') as infile:
+    EPS_T = yaml.safe_load(infile)['reducer_config']['shape_reducer_dbscan']['eps_t']
 
 
 @dataclass
