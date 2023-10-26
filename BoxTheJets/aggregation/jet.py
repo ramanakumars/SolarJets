@@ -10,8 +10,8 @@ class Jet:
         extracts
     '''
 
-    def __init__(self, subject: int, start: BasePoint, end: BasePoint, box: Box):
-        self.subject: int = subject
+    def __init__(self, subject_id: int, start: BasePoint, end: BasePoint, box: Box):
+        self.subject_id: int = subject_id
         self.start: BasePoint = start
         self.end: BasePoint = end
         self.box: Box = box
@@ -20,7 +20,7 @@ class Jet:
 
     def to_dict(self):
         data = {}
-        data['subject_id'] = self.subject
+        data['subject_id'] = self.subject_id
         data['start'] = self.start.to_dict()
         data['end'] = self.end.to_dict()
         data['box'] = self.box.to_dict()
@@ -33,7 +33,7 @@ class Jet:
         end = BasePoint.from_dict(data['end'])
         box = Box.from_dict(data['box'])
 
-        return cls(subject=data['subject_id'], start=start, end=end, box=box)
+        return cls(subject_id=data['subject_id'], start=start, end=end, box=box)
 
     def get_extract_starts(self):
         '''
