@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass
 from shapely.geometry import Polygon
 from panoptes_aggregation.reducers.shape_metric_IoU import IoU_metric
+from panoptes_aggregation.reducers.point_process_data import temporal_metric
 import yaml
 
 
@@ -40,7 +41,7 @@ class BasePoint:
             obj.extracts = []
             for extract in data['extracts']:
                 ext = cls(x=extract['x'], y=extract['y'], displayTime=extract['displayTime'], subject_id=extract['subject_id'], probability=extract['probability'])
-                obj.append(ext)
+                obj.extracts.append(ext)
 
         return obj
 
@@ -98,7 +99,7 @@ class Box:
             for extract in data['extracts']:
                 ext = cls(xcenter=extract['xcenter'], ycenter=extract['ycenter'], width=extract['width'], height=extract['height'],
                           angle=extract['angle'], displayTime=extract['displayTime'], subject_id=extract['subject_id'], probability=extract['probability'])
-                obj.append(ext)
+                obj.extracts.append(ext)
 
         return obj
 
@@ -175,7 +176,7 @@ def get_point_distance(p1: BasePoint, p2: BasePoint) -> float:
         dist : float
             Euclidian distance between (x0, y0) and (x1, y1)
     '''
-    return np.sqrt((p1.x - p2.x)**2. + (p1.y - p2.y)**2.)
+    return temporal_metric([p1.x, p1.y, p1.displayTime], [p2.x, p2.y, p2.displayTime])
 
 
 def get_box_distance(box1: Box, box2: Box) -> float:
