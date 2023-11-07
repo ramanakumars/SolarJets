@@ -4,9 +4,6 @@ import datetime
 import numpy as np
 from dateutil.parser import parse
 
-# First three functions are to read out the Zooniverse subjects file and make the metafile
-# The class MetaFile is to read out the produced metafile
-
 
 def convert_fileName_to_datetime(fileName: str):
     '''
@@ -65,20 +62,6 @@ def create_subjectinfo(subject, subjectsdata, keysToImport=None):
         print('')
         print(f"Not all metadata available for subject {subject} atempting to gather minimal information")
         raise
-        '''
-        try:
-            allData = json.loads(
-                subjectsdata['metadata'][subjectsdata['subject_id'] == subject][-1])
-            reducedwantedDict = {key: allData[key] for key in [
-                "#file_name_0", "#file_name_14", "#sol_standard"]}
-            wantedDict['startDate'] = str(convert_fileName_to_datetime(wantedDict['#fits_names'][0]))
-            wantedDict['endDate'] = str(convert_fileName_to_datetime(wantedDict['#fits_names'][0]))
-            return reducedwantedDict
-        except Exception as e:
-            print(e)
-            print(f"something went wrong while writing subject {subject}")
-            return {}
-        '''
 
 
 def create_metadata_jsonfile(filename: str, subjectstoloop: np.array, subjectsdata):
@@ -114,14 +97,15 @@ def create_metadata_jsonfile(filename: str, subjectstoloop: np.array, subjectsda
         '#im_ll_x',  # Vertical distance in pixels between bottom left corner and start solar image
         '#im_ll_y',  # Horizontal distance in pixels between bottom left corner and start solar image
         '#im_ur_x',  # Vertical distance in pixels between bottom left corner and end solar image
-        '#im_ur_y'  # Horizontal distance in pixels between bottom left corner and end solar image
+        '#im_ur_y',  # Horizontal distance in pixels between bottom left corner and end solar image,
+        '#sol_standard'  # SOL event that this subject corresponds to
     ]
 
     file = open(filename, 'w')
     file.write('[')
     for i, subject in enumerate(tqdm.tqdm(subjectstoloop, ascii=True, desc='Writing subjects to JSON')):
         subjectDict = {}
-        subjectDict['subjectId'] = int(subject)
+        subjectDict['subject_id'] = int(subject)
         subjectDict['data'] = create_subjectinfo(subject, subjectsdata, keysToImport)
         if i != len(subjectstoloop) - 1:
             file.write(json.dumps(subjectDict, indent=3) + ',')
@@ -158,7 +142,7 @@ class MetaFile:
 
         self.file_name = file_name
         self.data = data
-        self.subjects = np.asarray([x['subjectId'] for x in data])
+        self.subjects = np.asarray([x['subject_id'] for x in data])
         self.SOL_unique = np.unique([x['data']['#sol_standard'] for x in data])
 
     def get_subjectid_by_solstandard(self, sol_standard: str):
@@ -176,7 +160,7 @@ class MetaFile:
                 Array with all subjects id's in the HEK event
         '''
         try:
-            return np.asarray([x['subjectId'] for x in self.data if x['data']['#sol_standard'] == sol_standard])
+            return np.asarray([x['subject_id'] for x in self.data if x['data']['#sol_standard'] == sol_standard])
         except BaseException:
             print('ERROR: sol_standard ' + str(sol_standard) +
                   ' could not be read from ' + self.file_name)
@@ -196,12 +180,9 @@ class MetaFile:
             np.array
                 Array with dict metadata for all subjects in the HEK event
         '''
-        try:
-            return np.asarray([x['data'] for x in self.data if x['data']['#sol_standard'] == sol_standard])
-        except BaseException:
-            print('ERROR: sol_standard ' + str(sol_standard) +
-                  ' could not be read from ' + self.file_name)
-            return np.asarray([])
+        subjects = self.get_subjectid_by_solstandard(sol_standard)
+
+        return np.asarray([self.get_subjectdata_by_id(subject) for subject in subjects])
 
     def get_subjectkeyvalue_by_solstandard(self, sol_standard: str, key: str):
         '''
@@ -222,17 +203,9 @@ class MetaFile:
             np.array
                 Array with key value of the subjects in the HEK event
         '''
-        try:
-            if key == 'startDate' or key == 'endDate':
-                return np.asarray([string_to_datetime(x['data'][key]) for x in self.data if x['data']['#sol_standard'] == sol_standard], dtype='datetime64')
-            else:
-                return np.asarray([x['data'][key] for x in self.data if x['data']['#sol_standard'] == sol_standard])
-        except KeyError:
-            print('ERROR: key ' + key + ' not found, please check your spelling')
-        except BaseException:
-            print('ERROR: sol_standard ' + str(sol_standard) +
-                  ' could not be read from ' + self.file_name)
-            return np.asarray([])
+        subjects = self.get_subjectid_by_solstandard(sol_standard)
+
+        return np.asarray([self.get_subjectkeyvalue_by_id(subject, key) for subject in subjects])
 
     def get_subjectid_by_dates(self, start_date: str, end_date: str):
         '''
@@ -252,7 +225,7 @@ class MetaFile:
 
         try:
             S, E = string_to_datetime(start_date), string_to_datetime(end_date)
-            return np.asarray([x['subjectId'] for x in self.data if S < string_to_datetime(x['data']['startDate']) < E])
+            return np.asarray([x['subject_id'] for x in self.data if S < string_to_datetime(x['data']['startDate']) < E])
         except ValueError:
             print('ERROR: the start_date and end_date should be in format \'YYY-MM-dd\' or \'YYYY-MM-dd\' hh:mm:ss')
         except BaseException:
@@ -272,16 +245,11 @@ class MetaFile:
             np.array
                 Array with dict metadata for the subject
         '''
-        try:
-            response = np.asarray([x['data'] for x in self.data if x['subjectId'] == subject])
-            if len(response) == 1:
-                return response[0]
-            else:
-                print('ERROR: subjectId ' + str(subject) +
-                      ' is occuring more than once in ' + self.file_name)
-                return np.asarray([])
-        except BaseException:
-            print("ERROR: could not load data from file: " + self.file_name)
+        output = {}
+        for key in self.data.colnames:
+            output[key] = self.get_subjectkeyvalue_by_id(subject, key)
+
+        return output
 
     def get_subjectkeyvalue_by_id(self, subject: int, key: str):
         '''
@@ -300,45 +268,11 @@ class MetaFile:
             value
                 key value of the subject
         '''
-        try:
-            if key == 'startDate' or key == 'endDate':
-                return np.asarray([string_to_datetime(x['data'][key]) for x in self.data if x['subjectId'] == subject], dtype='datetime64')[0]
-            else:
-                return np.asarray([x['data'][key] for x in self.data if x['subjectId'] == subject])[0]
-        except KeyError:
-            print('ERROR: key ' + key + ' not found, please check your spelling')
-        except BaseException:
-            print('ERROR: subjectId ' + str(subject) + ' could not be read from ' + self.file_name)
-            return np.asarray([])
-
-    def get_subjectkeyvalue_by_list(self, subjectidlist: np.array, key: str):
-        '''
-            Get an array of key values of the subjects in the sol_standard HEK event
-            Inputs
-            ------
-            subjectidlist : np.array
-                list with Zooniverse subject id's
-            key : str
-                Dict key names
-                keys {'#file_name_0','#file_name_14', '#sol_standard', '#width','#height',
-                    '#naxis1', '#naxis2', '#cunit1', '#cunit2','#crval1','#crval2', '#cdelt1', '#cdelt2',
-                    '#crpix1', '#crpix2', '#crota2', '#im_ll_x', '#im_ll_y','#im_ur_x', '#im_ur_y'}
-            Outputs
-            ------
-            np.array
-                Array with key value of the subjects in the subjectidlist
-        '''
-        try:
-            if key == 'startDate' or key == 'endDate':
-                return np.asarray([[string_to_datetime(x['data'][key]) for x in self.data if x['subjectId'] == subjectId][0] for subjectId in subjectidlist], dtype='datetime64')
-            else:
-                return np.asarray([[x['data'][key] for x in self.data if x['subjectId'] == subjectId][0] for subjectId in subjectidlist])
-        except KeyError:
-            print('ERROR: key ' + key + ' not found, please check your spelling')
-        except BaseException:
-            print('ERROR: subjectId ' + str(subjectidlist) +
-                  ' could not be read from ' + self.file_name)
-            return np.asarray([])
+        row = self.data[self.data['subject_id'] == subject][0]
+        if key == 'startDate' or key == 'endDate':
+            return string_to_datetime(row['data'][key])
+        else:
+            return row['data'][key]
 
         
         
