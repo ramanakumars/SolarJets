@@ -78,6 +78,12 @@ def json_export_list(clusters, output):
             ji['solar_start'] = {
                 'x': jet.solar_start[0], 'y': jet.solar_start[1]}
             ji['solar_end'] = {'x': jet.solar_end[0], 'y': jet.solar_end[1]}
+            
+            ji['solar_cluster_values'] = {'x': jet.solar_cluster_values_x_y[0],
+                                          'y': jet.solar_cluster_values_x_y[1],
+                                          'w': jet.solar_W,
+                                          'h': jet.solar_H,
+                                          'a': jet.cluster_values[4]}
 
             # these are in the frame of the image not in solar coords
             ji['start'] = {'x': jet.start[0], 'y': jet.start[1]}
@@ -141,6 +147,9 @@ def json_import_list(input_file):
                 [J['solar_start'][i] for i in ['x', 'y']])
             jet_obj.solar_end = np.array(
                 [J['solar_end'][i] for i in ['x', 'y']])
+            jet_obj.solar_cluster_values_x_y = np.array(
+                [J['solar_cluster_values_x_y'][i] for i in ['x', 'y']])
+            
             jets_list.append(jet_obj)
 
         jets_list = np.asarray(jets_list)
