@@ -5,6 +5,8 @@ from .jet import Jet
 from .jet_cluster import JetCluster
 import matplotlib.pyplot as plt
 from matplotlib import animation
+import datetime
+import tqdm
 from .zoo_utils import get_subject_image
 
 
@@ -16,6 +18,8 @@ class NpEncoder(json.JSONEncoder):
             return float(obj)
         if isinstance(obj, np.ndarray):
             return obj.tolist()
+        if isinstance(obj, datetime.datetime):
+            return str(obj)
         return super(NpEncoder, self).default(obj)
 
 
@@ -226,3 +230,55 @@ def create_gif(jets):
     # save the animation as a gif
     ani = animation.ArtistAnimation(fig, ims)
     ani.save(f'{subject}.gif', writer='imagemagick')
+
+
+def create_metadata_jsonfile(filename: str, subjectstoloop: np.array, subjectsdata):
+    '''
+        Write out the metadata file for a given set of subjectstoloop to filename
+        Inputs
+        ------
+        filename: str
+            Filename to where the metadata should be written to
+        subjectstoloop: np.array
+            List of subjects for which the metadata should be gathered
+        subjectsdata: astropy.table.table.Table
+            data Table with Zooniverse metadata keys ['subject_id','metadata']
+
+    '''
+
+    # Select keys we want to write to json file
+    keysToImport = [
+        '#fits_names',  # First image filename in Zooniverse subject
+        '#width',  # Width of the image in pixel
+        '#height',  # Height of the image in pixel
+        '#naxis1',  # Pixels along axis 1
+        '#naxis2',  # Pixels along axis 2
+        '#cunit1',  # Units of the coordinate increments along naxis1 e.g. arcsec
+        '#cunit2',  # Units of the coordinate increments along naxis2 e.g. arcsec
+        '#crval1',  # Coordinate value at reference point on naxis1
+        '#crval2',  # Coordinate value at reference point on naxis2
+        '#cdelt1',  # Spatial scale of pixels for naxis1, i.e. coordinate increment at reference point
+        '#cdelt2',  # Spatial scale of pixels for naxis2, i.e. coordinate increment at reference point
+        '#crpix1',  # Pixel coordinate at reference point naxis1
+        '#crpix2',  # Pixel coordinate at reference point naxis2
+        '#crota2',  # Rotation of the horizontal and vertical axes in degrees
+        '#im_ll_x',  # Vertical distance in pixels between bottom left corner and start solar image
+        '#im_ll_y',  # Horizontal distance in pixels between bottom left corner and start solar image
+        '#im_ur_x',  # Vertical distance in pixels between bottom left corner and end solar image
+        '#im_ur_y',  # Horizontal distance in pixels between bottom left corner and end solar image,
+        '#sol_standard'  # SOL event that this subject corresponds to
+    ]
+
+    file = open(filename, 'w')
+    file.write('[')
+    for i, subject in enumerate(tqdm.tqdm(subjectstoloop, ascii=True, desc='Writing subjects to JSON')):
+        subjectDict = {}
+        subjectDict['subject_id'] = int(subject)
+        subjectDict['data'] = create_subjectinfo(subject, subjectsdata, keysToImport)
+        if i != len(subjectstoloop) - 1:
+            file.write(json.dumps(subjectDict, indent=3) + ',')
+        else:
+            file.write(json.dumps(subjectDict, indent=3) + ']')
+    file.close()
+    print(' ')
+    print("succesfully wrote subject information to file " + filename)

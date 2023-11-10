@@ -1,5 +1,4 @@
 import json
-import tqdm
 import datetime
 import numpy as np
 from dateutil.parser import parse
@@ -64,59 +63,7 @@ def create_subjectinfo(subject, subjectsdata, keysToImport=None):
         raise
 
 
-def create_metadata_jsonfile(filename: str, subjectstoloop: np.array, subjectsdata):
-    '''
-        Write out the metadata file for a given set of subjectstoloop to filename
-        Inputs
-        ------
-        filename: str
-            Filename to where the metadata should be written to
-        subjectstoloop: np.array
-            List of subjects for which the metadata should be gathered
-        subjectsdata: astropy.table.table.Table
-            data Table with Zooniverse metadata keys ['subject_id','metadata']
-
-    '''
-
-    # Select keys we want to write to json file
-    keysToImport = [
-        '#fits_names',  # First image filename in Zooniverse subject
-        '#width',  # Width of the image in pixel
-        '#height',  # Height of the image in pixel
-        '#naxis1',  # Pixels along axis 1
-        '#naxis2',  # Pixels along axis 2
-        '#cunit1',  # Units of the coordinate increments along naxis1 e.g. arcsec
-        '#cunit2',  # Units of the coordinate increments along naxis2 e.g. arcsec
-        '#crval1',  # Coordinate value at reference point on naxis1
-        '#crval2',  # Coordinate value at reference point on naxis2
-        '#cdelt1',  # Spatial scale of pixels for naxis1, i.e. coordinate increment at reference point
-        '#cdelt2',  # Spatial scale of pixels for naxis2, i.e. coordinate increment at reference point
-        '#crpix1',  # Pixel coordinate at reference point naxis1
-        '#crpix2',  # Pixel coordinate at reference point naxis2
-        '#crota2',  # Rotation of the horizontal and vertical axes in degrees
-        '#im_ll_x',  # Vertical distance in pixels between bottom left corner and start solar image
-        '#im_ll_y',  # Horizontal distance in pixels between bottom left corner and start solar image
-        '#im_ur_x',  # Vertical distance in pixels between bottom left corner and end solar image
-        '#im_ur_y',  # Horizontal distance in pixels between bottom left corner and end solar image,
-        '#sol_standard'  # SOL event that this subject corresponds to
-    ]
-
-    file = open(filename, 'w')
-    file.write('[')
-    for i, subject in enumerate(tqdm.tqdm(subjectstoloop, ascii=True, desc='Writing subjects to JSON')):
-        subjectDict = {}
-        subjectDict['subject_id'] = int(subject)
-        subjectDict['data'] = create_subjectinfo(subject, subjectsdata, keysToImport)
-        if i != len(subjectstoloop) - 1:
-            file.write(json.dumps(subjectDict, indent=3) + ',')
-        else:
-            file.write(json.dumps(subjectDict, indent=3) + ']')
-    file.close()
-    print(' ')
-    print("succesfully wrote subject information to file " + filename)
-
-
-class MetaFile:
+class SubjectMetadata:
     '''
         Data class to read out the meta data for each of the subjects given in Zooniverse
     '''
@@ -132,7 +79,8 @@ class MetaFile:
                      '#crpix1', '#crpix2', '#crota2', '#im_ll_x', '#im_ll_y','#im_ur_x', '#im_ur_y'}
         '''
         try:
-            data = json.load(open(file_name))
+            with open(file_name, 'r') as infile:
+                data = json.load(infile)
         except FileNotFoundError:
             print(f'{file_name} was not found')
             return
@@ -141,9 +89,9 @@ class MetaFile:
             return
 
         self.file_name = file_name
-        self.data = data
-        self.subjects = np.asarray([x['subject_id'] for x in data])
-        self.SOL_unique = np.unique([x['data']['#sol_standard'] for x in data])
+        self.data = np.asarray(data)
+        self.subject_ids = np.asarray([x['subject_id'] for x in data])
+        self.SOL_standard = np.asarray([x['data']['#sol_standard'] for x in data])
 
     def get_subjectid_by_solstandard(self, sol_standard: str):
         '''
@@ -160,7 +108,7 @@ class MetaFile:
                 Array with all subjects id's in the HEK event
         '''
         try:
-            return np.asarray([x['subject_id'] for x in self.data if x['data']['#sol_standard'] == sol_standard])
+            return np.unique(self.subject_ids[np.where(self.SOL_standard == sol_standard)[0]])
         except BaseException:
             print('ERROR: sol_standard ' + str(sol_standard) +
                   ' could not be read from ' + self.file_name)
@@ -246,7 +194,7 @@ class MetaFile:
                 Array with dict metadata for the subject
         '''
         output = {}
-        for key in self.data.colnames:
+        for key in self.data[0]['data'].keys():
             output[key] = self.get_subjectkeyvalue_by_id(subject, key)
 
         return output
@@ -268,7 +216,7 @@ class MetaFile:
             value
                 key value of the subject
         '''
-        row = self.data[self.data['subject_id'] == subject][0]
+        row = self.data[self.subject_ids == subject][0]
         if key == 'startDate' or key == 'endDate':
             return string_to_datetime(row['data'][key])
         else:
@@ -361,4 +309,4 @@ def string_to_datetime(datetimestring: str):
         ------
         datetime(YYYY,MM,dd,hh,mm,ss)
     '''
-    return datetime.datetime.fromisoformat(datetimestring)
+    return np.asarray(datetime.datetime.fromisoformat(datetimestring), dtype=np.datetime64)
