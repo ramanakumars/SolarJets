@@ -42,3 +42,4 @@ python3 scripts/create_subject_metadata.py
 
 # get the unique jets
 python3 scripts/get_unique_jets.py
+python3 scripts/cluster_jets_by_sol.py

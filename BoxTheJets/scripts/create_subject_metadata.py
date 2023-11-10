@@ -5,7 +5,7 @@ sys.path.append('.')
 
 try:
     from aggregation.workflow import Aggregator
-    from aggregation.meta_file_handler import create_metadata_jsonfile
+    from aggregation.io import create_metadata_jsonfile
 except ModuleNotFoundError:
     raise
 
