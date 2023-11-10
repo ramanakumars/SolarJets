@@ -1,7 +1,11 @@
 import numpy as np
+from dateutil.parser import parse
 from .shape_utils import BasePoint, Box
+from dataclasses import dataclass
+import datetime
 
 
+@dataclass
 class Jet:
     '''
         Oject to hold the data associated with a single jet.
@@ -10,20 +14,25 @@ class Jet:
         extracts
     '''
 
-    def __init__(self, subject_id: int, start: BasePoint, end: BasePoint, box: Box):
-        self.subject_id: int = subject_id
-        self.start: BasePoint = start
-        self.end: BasePoint = end
-        self.box: Box = box
+    subject_id: int
+    sol_standard: str
+    start: BasePoint
+    end: BasePoint
+    box: Box
 
+    def __post_init__(self):
         # self.autorotate()
+        return
 
     def to_dict(self):
         data = {}
         data['subject_id'] = self.subject_id
+        data['sol_standard'] = self.sol_standard
         data['start'] = self.start.to_dict()
         data['end'] = self.end.to_dict()
         data['box'] = self.box.to_dict()
+        if hasattr(self, 'time_info'):
+            data['time_info'] = self.time_info
 
         return data
 
@@ -33,7 +42,27 @@ class Jet:
         end = BasePoint.from_dict(data['end'])
         box = Box.from_dict(data['box'])
 
-        return cls(subject_id=data['subject_id'], start=start, end=end, box=box)
+        obj = cls(subject_id=data['subject_id'], sol_standard=data['sol_standard'], start=start, end=end, box=box)
+
+        if 'time_info' in data:
+            obj.add_time(parse(data['time_info']['subject_start_time']), parse(data['time_info']['subject_end_time']))
+
+        return obj
+
+    def add_time(self, start_time, end_time):
+        if isinstance(start_time, np.ndarray):
+            start_time = start_time.item()
+        if isinstance(end_time, np.ndarray):
+            end_time = end_time.item()
+        dt = (end_time - start_time).total_seconds()
+        self.time_info = {}
+        self.time_info['subject_start_time'] = start_time
+        self.time_info['subject_end_time'] = end_time
+        self.time_info['subject_dt'] = dt
+
+        self.time_info['box'] = start_time + datetime.timedelta(seconds=self.box.displayTime * dt)
+        self.time_info['start'] = start_time + datetime.timedelta(seconds=self.start.displayTime * dt)
+        self.time_info['end'] = start_time + datetime.timedelta(seconds=self.end.displayTime * dt)
 
     def get_extract_starts(self):
         '''
@@ -163,16 +192,10 @@ class Jet:
         else:
             height_points = rolled_points[::-1][:2]
 
-        self.base_points = base_points
-        self.height_points = height_points
-
         # also figure out the angle and additional size metadata
         # the angle is the angle between the height points and the base
-        dh = self.height_points[1] - self.height_points[0]
-        self.angle = np.arctan2(dh[0], -dh[1])
-
-        self.height = np.linalg.norm(dh)
-        self.width = np.linalg.norm(self.base_points[1] - self.base_points[0])
+        dh = height_points[1] - height_points[0]
+        self.box.angle = np.arctan2(dh[0], -dh[1])
 
     def get_width_height_pairs(self):
         '''

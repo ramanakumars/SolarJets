@@ -6,6 +6,7 @@ import json
 from shapely.geometry import Point
 from .jet import Jet
 from .shape_utils import BasePoint, Box, get_point_distance, get_box_iou
+from .meta_file_handler import SubjectMetadata
 from .zoo_utils import get_subject_image
 
 
@@ -126,9 +127,7 @@ class Aggregator:
             subjects : numpy.ndarray
                 Array of subject IDs on Zooniverse
         '''
-        subjects = np.unique(np.concatenate([[e.subject_id for e in data] for data in [self.box_data, self.start_points_data, self.end_points_data]]))
-
-        return np.unique(subjects)
+        return self.subjects
 
     def get_points_data(self, subject):
         '''
@@ -422,6 +421,9 @@ class Aggregator:
 
         return np.asarray(clust_starts), np.asarray(clust_ends)
 
+    def load_subject_data(self, meta_file):
+        self.subject_data = SubjectMetadata(meta_file)
+
     def filter_classifications(self, subject, plot=False):
         '''
             Find a list of unique jets in the subject
@@ -439,6 +441,12 @@ class Aggregator:
                 List of `Jet` objects that are unique per subject (i.e.,
                 they do not share overlap with other jets in the subject)
         '''
+
+        if not hasattr(self, 'subject_data'):
+            raise AttributeError("Please load the subject metadata using the MetaFile class and aggregator.load_subject_data(meta_file)")
+
+        subject_metadata = self.subject_data.get_subjectdata_by_id(subject)
+
         # get the box data and clusters for the two tasks
         cluster_boxes = self.get_box_data(subject)
         cluster_start_points, cluster_end_points = self.get_points_data(subject)
@@ -487,7 +495,8 @@ class Aggregator:
 
             best_end = unique_ends[np.argmin(dists)]
 
-            jet_obj_i = Jet(subject, best_start, best_end, boxi)
+            jet_obj_i = Jet(subject, subject_metadata['#sol_standard'], best_start, best_end, boxi)
+            jet_obj_i.add_time(subject_metadata['startDate'], subject_metadata['endDate'])
 
             # remove the extracts (we will add them back in in just a bit)
             jet_obj_i.box.extracts = []
