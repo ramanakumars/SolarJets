@@ -39,3 +39,6 @@ panoptes_aggregation reduce ../extracts/shape_extractor_temporalRotateRectangle_
 cd ..;
 panoptes project download -t subjects 11265 ../solar-jet-hunter-subjects.csv
 python3 scripts/create_subject_metadata.py
+
+# get the unique jets
+python3 scripts/get_unique_jets.py
