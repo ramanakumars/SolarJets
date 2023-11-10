@@ -1,15 +1,39 @@
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from .zoo_utils import get_subject_image
+from .jet import Jet
 import tqdm
+from dataclasses import dataclass, field
+import datetime
 
 
+@dataclass
 class JetCluster:
-    def __init__(self, jets):
+    jets: list[Jet]
+    start_time: datetime.datetime = field(init=False)
+    end_time: datetime.datetime = field(init=False)
+
+    def __post_init__(self):
         '''
             Initiate the JetCluster with a list of jet objects that are contained by that cluster.
         '''
-        self.jets = jets
+        self.start_time = self.jets[0].time_info['start']
+        self.end_time = self.jets[-1].time_info['end']
+
+    @classmethod
+    def from_dict(cls, data):
+        jets = []
+        for jet_dict in data:
+            jets.append(Jet.from_dict(jet_dict))
+
+        return cls(jets)
+
+    def to_dict(self):
+        return {
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+            'jets': [jet.to_dict() for jet in self.jets]
+        }
 
     def create_gif(self, output):
         '''
