@@ -62,7 +62,7 @@ def create_gif(jets):
     ani.save(f'{subject}.gif', writer='imagemagick')
 
 
-def create_metadata_jsonfile(filename: str, subjectstoloop: np.array, subjectsdata):
+def create_metadata_jsonfile(filename: str, subjects: np.array, subjectsdata):
     '''
         Write out the metadata file for a given set of subjectstoloop to filename
         Inputs
@@ -99,16 +99,14 @@ def create_metadata_jsonfile(filename: str, subjectstoloop: np.array, subjectsda
         '#sol_standard'  # SOL event that this subject corresponds to
     ]
 
-    file = open(filename, 'w')
-    file.write('[')
-    for i, subject in enumerate(tqdm.tqdm(subjectstoloop, ascii=True, desc='Writing subjects to JSON')):
+    subject_data = []
+    for i, subject in enumerate(tqdm.tqdm(subjects, ascii=True, desc='Writing subjects to JSON')):
         subjectDict = {}
         subjectDict['subject_id'] = int(subject)
         subjectDict['data'] = create_subjectinfo(subject, subjectsdata, keysToImport)
-        if i != len(subjectstoloop) - 1:
-            file.write(json.dumps(subjectDict, indent=3) + ',')
-        else:
-            file.write(json.dumps(subjectDict, indent=3) + ']')
-    file.close()
-    print(' ')
-    print("succesfully wrote subject information to file " + filename)
+        subject_data.append(subjectDict)
+
+    with open(filename, 'w') as outfile:
+        json.dump(subject_data, outfile, cls=NpEncoder)
+
+    print(f"Wrote subject information to {filename}")
