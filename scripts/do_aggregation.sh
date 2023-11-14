@@ -1,3 +1,5 @@
+#!/bin/bash
+
 usage() { 
 	echo "Usage: $0 [-c <int>]"; 
 	echo "     -c Number of processors to use for reductions [default=1]" 1>&2; 
@@ -17,7 +19,7 @@ while getopts ":c:" options; do
 	esac
 done
 
-mkdir -p { extracts , reductions }
+mkdir -p {extracts,reductions}
 
 # first do the JetOrNot workflow
 cd extracts &&
@@ -51,4 +53,4 @@ panoptes_aggregation reduce ../extracts/shape_extractor_temporalRotateRectangle_
 
 
 # get the unique jets
-python3 scripts/get_unique_jets.py && python3 scripts/cluster_jets_by_sol.py
+cd .. && python3 scripts/get_unique_jets.py && python3 scripts/cluster_jets_by_sol.py
