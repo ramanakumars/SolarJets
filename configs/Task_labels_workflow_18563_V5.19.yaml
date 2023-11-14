@@ -1,0 +1,3 @@
+T0.answers.0.label: Yes, there is at least one jet in this image sequence.
+T0.answers.1.label: No, there are no jets in this image sequence.
+T0.question: Do you see a solar jet in the video clip?

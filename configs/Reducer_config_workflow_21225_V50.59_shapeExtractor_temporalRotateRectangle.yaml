@@ -1,0 +1,8 @@
+reducer_config:
+    shape_reducer_dbscan:
+        shape: temporalRotateRectangle
+        min_samples: 4
+        allow_single_cluster: True
+        metric_type: IoU
+        eps: 0.5
+        eps_t: 0.4
