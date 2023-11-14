@@ -1,7 +1,0 @@
-reducer_config:
-    shape_reducer_dbscan:
-        shape: rotateRectangle
-        min_samples: 3
-        allow_single_cluster: True
-        metric_type: IoU
-        eps: 0.6

@@ -110,8 +110,7 @@ class SubjectMetadata:
         try:
             return np.unique(self.subject_ids[np.where(self.SOL_standard == sol_standard)[0]])
         except BaseException:
-            print('ERROR: sol_standard ' + str(sol_standard) +
-                  ' could not be read from ' + self.file_name)
+            print(f'ERROR: sol_standard {sol_standard} could not be read from {self.file_name}')
             return np.asarray([])
 
     def get_subjectdata_by_solstandard(self, sol_standard: str):
@@ -177,8 +176,7 @@ class SubjectMetadata:
         except ValueError:
             print('ERROR: the start_date and end_date should be in format \'YYY-MM-dd\' or \'YYYY-MM-dd\' hh:mm:ss')
         except BaseException:
-            print('ERROR: no data can be found between ' +
-                  str(start_date) + str(end_date) + ' in ' + self.file_name)
+            print(f'ERROR: no data can be found between {start_date} - {end_date} in {self.file_name}')
             return np.asarray([])
 
     def get_subjectdata_by_id(self, subject: int):

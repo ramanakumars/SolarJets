@@ -6,14 +6,14 @@ import json
 sys.path.append('.')
 
 try:
-    from aggregation.workflow import Aggregator
+    from astropy.io import ascii
     from aggregation.meta_file_handler import create_subjectinfo
     from aggregation.io import NpEncoder
 except ModuleNotFoundError:
     raise
 
-aggregator = Aggregator('reductions/temporal_point_reducer_hdbscan_box_the_jets.csv', 'reductions/shape_reducer_dbscan_box_the_jets.csv')
-subjects = aggregator.get_subjects()
+data = ascii.read('reductions/question_reducer_jet_or_not.csv', format='csv')
+subjects = np.unique(data['subject_id'])
 subject_metadata = pd.read_csv('../solar-jet-hunter-subjects.csv').to_dict(orient='list')
 for key in subject_metadata.keys():
     subject_metadata[key] = np.asarray(subject_metadata[key])
