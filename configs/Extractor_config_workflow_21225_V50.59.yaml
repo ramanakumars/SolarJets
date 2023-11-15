@@ -28,4 +28,4 @@ extractor_config:
     -   task: T2
     -   task: T5
 workflow_id: 21225
-workflow_version: {'min': '50.53'}
+workflow_version: {'min': '50.63'}
