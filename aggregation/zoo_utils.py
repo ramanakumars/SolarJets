@@ -21,7 +21,8 @@ def get_subject_image(subject, time=0.5):
     # get the subject metadata from Panoptes
     subject = Subject(int(subject))
     vid = imageio.get_reader(subject.locations[0]['video/mp4'], 'ffmpeg')
-    frameid = int(time * vid.get_meta_data()['fps'])
+    num_frames = vid.count_frames()
+    frameid = int(time * num_frames)
     img = vid.get_data(frameid)
 
     return img
