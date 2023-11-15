@@ -18,7 +18,7 @@ subject_metadata = pd.read_csv('../solar-jet-hunter-subjects.csv').to_dict(orien
 for key in subject_metadata.keys():
     subject_metadata[key] = np.asarray(subject_metadata[key])
 
-filename = '../solar_jet_hunter_metadata.json'
+filename = 'solar_jet_hunter_metadata.json'
 
 # Select keys we want to write to json file
 keysToImport = [
@@ -51,6 +51,6 @@ for i, subject in enumerate(tqdm.tqdm(subjects, ascii=True, desc='Writing subjec
     subject_data.append(subjectDict)
 
 with open(filename, 'w') as outfile:
-    json.dump(subject_data, outfile, cls=NpEncoder)
+    json.dump(subject_data, outfile, cls=NpEncoder, indent=4)
 
 print(f"Wrote subject information to {filename}")
