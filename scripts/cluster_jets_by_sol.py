@@ -17,7 +17,7 @@ except ModuleNotFoundError:
 eps = 2.  # distance epsilon (arbitrary normalized units)
 time_eps = 10. * 60.  # two jets are in the same cluster if they are 10 minutes apart
 
-metadata = SubjectMetadata('solar_jet_hunter_subject_metadata.json')
+metadata = SubjectMetadata('solar_jet_hunter_metadata.json')
 
 with open('reductions/jets.json', 'r') as infile:
     jets = [Jet.from_dict(jet) for jet in json.load(infile)]
