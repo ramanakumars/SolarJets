@@ -214,7 +214,11 @@ class SubjectMetadata:
             value
                 key value of the subject
         '''
-        row = self.data[self.subject_ids == subject][0]
+        try:
+            row = self.data[self.subject_ids == subject][0]
+        except IndexError:
+            print(f'{subject} not in subject ID list!')
+            raise
         if key == 'startDate' or key == 'endDate':
             return string_to_datetime(row['data'][key])
         else:
