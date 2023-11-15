@@ -36,7 +36,7 @@ echo ""
 
 # get and create the subject metadata
 cd .. &&
-panoptes project download -t subjects 11265 ../solar-jet-hunter-subjects.csv &&
+panoptes project download -t subjects 11265 solar-jet-hunter-subjects.csv &&
 python3 scripts/create_subject_metadata.py
 
 echo ""
