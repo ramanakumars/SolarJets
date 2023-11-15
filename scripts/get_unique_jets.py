@@ -10,7 +10,7 @@ except ModuleNotFoundError:
     raise
 
 aggregator = Aggregator('reductions/temporal_point_reducer_hdbscan_box_the_jets.csv', 'reductions/shape_reducer_dbscan_box_the_jets.csv')
-aggregator.load_subject_data('../solar_jet_hunter_subject_metadata.json')
+aggregator.load_subject_data('solar_jet_hunter_subject_metadata.json')
 jets = []
 for subject in tqdm.tqdm(aggregator.subjects, desc='Finding unique jets', ascii=True):
     jets.extend(aggregator.filter_classifications(subject))
