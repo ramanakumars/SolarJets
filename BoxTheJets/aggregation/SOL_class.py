@@ -78,12 +78,13 @@ def json_export_list(clusters, output):
             ji['solar_start'] = {
                 'x': jet.solar_start[0], 'y': jet.solar_start[1]}
             ji['solar_end'] = {'x': jet.solar_end[0], 'y': jet.solar_end[1]}
-            
-            ji['solar_cluster_values'] = {'x': jet.solar_cluster_values_x_y[0],
-                                          'y': jet.solar_cluster_values_x_y[1],
-                                          'w': jet.solar_W,
-                                          'h': jet.solar_H,
-                                          'a': jet.cluster_values[4]}
+
+            if hasattr(jet, 'solar_cluster_values'):
+                ji['solar_cluster_values'] = {'x': jet.solar_cluster_values[0],
+                                              'y': jet.solar_cluster_values[1],
+                                              'w': jet.solar_cluster_values[2],
+                                              'h': jet.solar_cluster_values[3],
+                                              'a': jet.solar_cluster_values[4]}
 
             # these are in the frame of the image not in solar coords
             ji['start'] = {'x': jet.start[0], 'y': jet.start[1]}
@@ -139,6 +140,11 @@ def json_import_list(input_file):
             jet_obj = Jet(subject, best_start, best_end, jeti, jet_params)
             jet_obj.time = np.datetime64(J['time'])
             jet_obj.sigma = J['sigma']
+
+            if 'solar_cluster_values' in J:
+                jet_obj.solar_cluster_values = np.array([J['solar_cluster_values'][i]
+                                  for i in ['x', 'y', 'w', 'h', 'a']])
+
             jet_obj.solar_H = J['solar_H']
             jet_obj.solar_H_sig = np.array(
                 [J['solar_H_sig'][i] for i in ['upper', 'lower']])
