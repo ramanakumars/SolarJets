@@ -379,6 +379,80 @@ class MetaFile:
                   ' could not be read from ' + self.file_name)
             return np.asarray([])
 
+        
+        
+    def get_subjectid_by_JetCluster(self, list_jet_clusters, shj_id: str):
+        '''
+        Get an array of subject id in the Jet_Cluster identified by shj_id
+            Inputs
+            ------
+            list_jet_clusters : list
+                List of Jet_cluster objects to search
+                can be read from a Jet_cluster.json file
+
+            shj_id : str 
+                The Jet_Cluster identifier to get the information for
+
+            Outputs
+            ------
+            np.array
+                Array with all subjects id's in the Jet_cluster with shj_id
+        '''
+        try:
+            Jet = [list_jet_clusters[i] for i in range(2) if list_jet_clusters[i].ID == shj_id][0]
+            return np.asarray([Jet.jets[i].subject for i in range(len(Jet.jets))])
+        except:
+            print('ERROR: shj_identifier ' + str(shj_id) +
+                  ' could not be read from the list_jet_clusters input')
+            return np.asarray([])
+
+    def get_subjectdata_by_JetCluster(self, list_jet_clusters, shj_id: str):
+        '''
+        Get an array of metadata for the subjects in the Jet_Cluster identified by shj_id
+            Inputs
+            ------
+            list_jet_clusters : list
+                List of Jet_cluster objects to search
+                can be read from a Jet_cluster.json file
+
+            shj_id : str 
+                The Jet_Cluster identifier to get the information for
+
+            Outputs
+            ------
+            np.array
+                Array with dict metadata for all subjects in the Jet_cluster with shj_id
+        '''
+        subjects_list = self.get_subjectid_by_JetCluster(list_jet_clusters, shj_id)
+        return np.asarray([self.get_subjectdata_by_id(subject) for subject in subjects_list])
+    
+
+    def get_subjectkeyvalue_by_JetCluster(self, list_jet_clusters, shj_id: str, key: str):
+        '''
+            Get an array of key values of the subjects in the Jet_Cluster identified by shj_id
+            Inputs
+            ------
+            list_jet_clusters : list
+                List of Jet_cluster objects to search
+                can be read from a Jet_cluster.json file
+
+            shj_id : str 
+                The Jet_Cluster identifier to get the information for
+            key : str 
+                Dict key names 
+                keys {'#file_name_0','#file_name_14', '#sol_standard', '#width','#height',
+                    '#naxis1', '#naxis2', '#cunit1', '#cunit2','#crval1','#crval2', '#cdelt1', '#cdelt2', 
+                    '#crpix1', '#crpix2', '#crota2', '#im_ll_x', '#im_ll_y','#im_ur_x', '#im_ur_y'}
+            Outputs
+            ------
+            np.array
+                Array with key value of the subjects in the Jet_cluster with shj_id
+        '''
+        subjects_list = self.get_subjectid_by_JetCluster(list_jet_clusters, shj_id)
+        return self.get_subjectkeyvalue_by_list(subjects_list, key)
+    
+
+
 
 def string_to_datetime(datetimestring: str):
     '''
