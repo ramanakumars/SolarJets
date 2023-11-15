@@ -83,10 +83,10 @@ class SubjectMetadata:
                 data = json.load(infile)
         except FileNotFoundError:
             print(f'{file_name} was not found')
-            return
+            raise
         except BaseException:
             print('This file could not be read out as a json, please check the format')
-            return
+            raise
 
         self.file_name = file_name
         self.data = np.asarray(data)
