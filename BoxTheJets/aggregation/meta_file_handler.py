@@ -399,7 +399,7 @@ class MetaFile:
                 Array with all subjects id's in the Jet_cluster with shj_id
         '''
         try:
-            Jet = [list_jet_clusters[i] for i in range(2) if list_jet_clusters[i].ID == shj_id][0]
+            Jet = [list_jet_clusters[i] for i in range(len(list_jet_clusters)) if list_jet_clusters[i].ID == shj_id][0]
             return np.asarray([Jet.jets[i].subject for i in range(len(Jet.jets))])
         except:
             print('ERROR: shj_identifier ' + str(shj_id) +
