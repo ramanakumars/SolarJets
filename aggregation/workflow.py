@@ -37,8 +37,8 @@ def get_point_data_from_rows(point_rows, tool):
             extracts_time = row_time[extracts_mask]
             extracts_prob = row_probs[extracts_mask]
 
-            extract_points = []
-            for j, (x, y, time, prob) in enumerate(zip(extracts_x, extracts_y, extracts_time, extracts_prob)):
+            extract_points: list[BasePoint] = []
+            for _, (x, y, time, prob) in enumerate(zip(extracts_x, extracts_y, extracts_time, extracts_prob)):
                 extract_points.append(BasePoint(x=x, y=y, displayTime=time, probability=prob, subject_id=subject_id))
 
             point.extracts = extract_points
@@ -109,8 +109,8 @@ class Aggregator:
                     extracts_a = np.radians(row_box_a[extracts_mask])
                     extracts_time = row_box_time[extracts_mask]
 
-                    extract_boxes = []
-                    for j, (x, y, w, h, a, time) in enumerate(zip(extracts_x, extracts_y, extracts_w, extracts_h, extracts_a, extracts_time)):
+                    extract_boxes: list[Box] = []
+                    for _, (x, y, w, h, a, time) in enumerate(zip(extracts_x, extracts_y, extracts_w, extracts_h, extracts_a, extracts_time)):
                         box_ext = Box(xcenter=x, ycenter=y, width=w, height=h, angle=a, displayTime=time, subject_id=subject_id)
                         extract_boxes.append(box_ext)
 
@@ -201,7 +201,7 @@ class Aggregator:
         # valid clusters (iou > 0)
         temp_boxes = []
 
-        for i, box in enumerate(boxes):
+        for box in boxes:
             if box.extract_IoU > 1.e-6:
                 temp_boxes.append(box)
 
@@ -259,7 +259,6 @@ class Aggregator:
                         ax.plot(*bj.get_box_edges(), 'k--', linewidth=0.5)
                     else:
                         ax.plot(*bj.get_box_edges(), 'k-', linewidth=0.5)
-                for j in range(nboxes):
                     # calculate the bounding box for the cluster confidence
                     # and get the boxes edges
                     plus_sigma_box, minus_sigma_box = bj.get_plus_minus_sigma()
@@ -269,8 +268,7 @@ class Aggregator:
                     y_p = plus_sigma_box[:, 1]
                     x_m = minus_sigma_box[:, 0]
                     y_m = minus_sigma_box[:, 1]
-                    ax.fill(np.append(
-                        x_p, x_m[::-1]), np.append(y_p, y_m[::-1]), color='white', alpha=0.25)
+                    ax.fill(np.append(x_p, x_m[::-1]), np.append(y_p, y_m[::-1]), color='white', alpha=0.25)
 
                 ax.axis('off')
                 plt.tight_layout()
@@ -499,9 +497,9 @@ class Aggregator:
             jet_obj_i.add_time(subject_metadata['startDate'], subject_metadata['endDate'])
 
             # remove the extracts (we will add them back in in just a bit)
-            jet_obj_i.box.extracts = []
-            jet_obj_i.start.extracts = []
-            jet_obj_i.end.extracts = []
+            jet_obj_i.box.extracts: list[Box] = []
+            jet_obj_i.start.extracts: list[BasePoint] = []
+            jet_obj_i.end.extracts: list[BasePoint] = []
 
             jets.append(jet_obj_i)
 
