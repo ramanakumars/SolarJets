@@ -5,6 +5,7 @@ import matplotlib.animation as animation
 import ast
 from panoptes_client import Panoptes, Subject
 from skimage import io, transform
+import pandas as pd
 import getpass
 from shapely.geometry import Polygon, Point
 
@@ -565,8 +566,7 @@ class Aggregator:
                 path to the classification file (in Zooniverse format)
         '''
         self.classification_file = classification_file
-        self.classification_data = ascii.read(
-            classification_file, delimiter=',')
+        self.classification_data = pd.read_csv(classification_file)
 
     def get_retired_subjects(self):
         '''
@@ -1537,6 +1537,13 @@ class Aggregator:
             for key in combined_ends.keys():
                 jets[index].end_extracts[key.replace(
                     '_end', '')].append(combined_ends[key][i])
+
+        if hasattr(self, 'classification_data'):
+            nclassifications = sum(self.classification_data['subject_ids'] == subject)
+
+        for jet in jets:
+            nextracts = max((len(jet.box_extracts['x']), len(jet.start_extracts['x']), len(jet.end_extracts['x'])))
+            jet.event_probability = nextracts / nclassifications
 
         if plot:
             fig, ax = plt.subplots(1, 1, dpi=150)
