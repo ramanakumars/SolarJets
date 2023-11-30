@@ -1,4 +1,4 @@
-from panoptes_client import Workflow, SubjectSet, Subject
+from panoptes_client import Workflow, Subject
 from astropy.io import ascii
 from astropy.table import Table
 from skimage import io
@@ -7,8 +7,7 @@ import os
 from multiprocessing import Pool
 import tqdm
 import signal
-import time
-import ast
+import json
 
 FETCH_FROM_PANOPTES = False
 
@@ -57,7 +56,7 @@ def get_subject_scale(subject_id):
         data = [int(subject.id), *scale]
 
         return data
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -148,11 +147,12 @@ def modify_extracts(table, point_extracts='extracts/point_extractor_by_frame_box
                     points_data_sc[col] = points_data_sc[col].astype('<U40')
 
     # loop through all the subjects
+    points_subject_id = np.asarray(points_data['subject_id'][:])
     for row in tqdm.tqdm(table, desc='Processing points'):
         subject = row['subject_id']
 
         # find the relevant subjects in the point extractor
-        mask = np.where(points_data['subject_id'] == subject)[0]
+        mask = np.where(points_subject_id == subject)[0]
 
         # for each extract
         for row_ind in mask:
@@ -171,14 +171,14 @@ def modify_extracts(table, point_extracts='extracts/point_extractor_by_frame_box
                         # check if the entry has data
                         try:
                             # convert to list
-                            data = ast.literal_eval(data)
+                            data = json.loads(data)
 
                             # apply the scaling
                             data_scaled = [val / scale for val in data]
 
                             # and save it back to the scaled table
                             points_data_sc[col][row_ind] = str(data_scaled)
-                        except ValueError:
+                        except (ValueError, TypeError):
                             continue
     points_data_sc.write(point_extracts.replace('.csv', '_scaled.csv'), delimiter=',', overwrite=True)
 
@@ -196,11 +196,12 @@ def modify_extracts(table, point_extracts='extracts/point_extractor_by_frame_box
                     box_data_sc[col] = box_data_sc[col].astype('<U40')
 
     # loop through all the subjects
+    box_subject_id = np.asarray(box_data['subject_id'][:])
     for row in tqdm.tqdm(table, desc='Processing box'):
         subject = row['subject_id']
 
         # find the relevant subjects in the point extractor
-        mask = np.where(box_data['subject_id'] == subject)[0]
+        mask = np.where(box_subject_id == subject)[0]
 
         # for each extract
         for row_ind in mask:
@@ -219,14 +220,14 @@ def modify_extracts(table, point_extracts='extracts/point_extractor_by_frame_box
                         # check if the entry has data
                         try:
                             # convert to list
-                            data = ast.literal_eval(data)
+                            data = json.loads(data)
 
                             # apply the scaling
                             data_scaled = [val / scale for val in data]
 
                             # and save it back to the original array
                             box_data_sc[col][row_ind] = str(data_scaled)
-                        except ValueError:
+                        except (ValueError, TypeError):
                             continue
 
     box_data_sc.write(box_extracts.replace('.csv', '_scaled.csv'), format='csv', overwrite=True)
