@@ -14,10 +14,18 @@ from .meta_file_handler import MetaFile
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):
-            return int(obj)
+            if np.isnan(obj):
+                return None
+            else:
+                return int(obj)
         if isinstance(obj, np.floating):
-            return float(obj)
+            if np.isnan(obj):
+                return None
+            else:
+                return float(obj)
         if isinstance(obj, np.ndarray):
+            obj = obj
+            obj[np.isnan(obj)] = None
             return obj.tolist()
         return super(NpEncoder, self).default(obj)
 
@@ -69,6 +77,7 @@ def json_export_list(clusters, output):
             ji['subject'] = jet.subject
             ji['sigma'] = jet.sigma
             ji['time'] = str(jet.time)
+            ji['event_probability'] = jet.event_probability
 
             # these are in solar coordinates
             ji['solar_H'] = jet.solar_H
@@ -100,7 +109,7 @@ def json_export_list(clusters, output):
         outdata.append(ci)
 
     with open(f"{str(output)}.json", "w") as outfile:
-        json.dump(outdata, outfile, cls=NpEncoder)
+        json.dump(outdata, outfile, cls=NpEncoder, indent=4, sort_keys=True)
 
     print(f'The {len(clusters)} JetCluster objects are exported to {output}.json.')
 
@@ -140,7 +149,7 @@ def json_import_list(input_file):
             jet_obj = Jet(subject, best_start, best_end, jeti, jet_params)
             jet_obj.time = np.datetime64(J['time'])
             jet_obj.sigma = J['sigma']
-
+            jet_obj.event_probability = J['event_probability']
             if 'solar_cluster_values' in J:
                 jet_obj.solar_cluster_values = np.array([J['solar_cluster_values'][i]
                                   for i in ['x', 'y', 'w', 'h', 'a']])
