@@ -71,8 +71,8 @@ class QuestionResult:
 
         agreement = np.zeros_like(num_votes)
 
-        agreement[value_yes] = counts[value_yes, 0] / (num_votes[value_yes])
-        agreement[value_no] = counts[value_no, 1] / (num_votes[value_no])
+        agreement[value_yes] = counts[value_yes, 0] / (num_votes[value_yes] + 1.e-6)
+        agreement[value_no] = counts[value_no, 1] / (num_votes[value_no] + 1.e-6)
 
         self.agreement = np.asarray(agreement)  # The order of agreement is in the order of the subjects
 
