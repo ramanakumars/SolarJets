@@ -21,7 +21,7 @@ class Jet:
     box: Box
 
     def __post_init__(self):
-        # self.autorotate()
+        self.autorotate()
         return
 
     def to_dict(self):
@@ -169,15 +169,14 @@ class Jet:
             Find the rotation of the jet wrt to solar north and
             find the base width and height of the box
         '''
-        box_points = np.transpose(self.box.get_box_edges())[:4, :]
+        box_points = self.box.get_box_edges()[:4, :]
 
         # find the distance between each point and the starting base
-        dists = [np.linalg.norm((point - self.start)) for point in box_points]
+        dists = [np.linalg.norm((point - self.start.coordinate)) for point in box_points]
         sorted_dists = np.argsort(dists)
 
         # the base points are the two points closest to the start
-        base_points = np.array(
-            [box_points[sorted_dists[0]], box_points[sorted_dists[1]]])
+        base_points = np.array([box_points[sorted_dists[0]], box_points[sorted_dists[1]]])
 
         # the height points are the next two
         rolled_points = np.delete(np.roll(box_points, -sorted_dists[0],
@@ -196,6 +195,8 @@ class Jet:
         # the angle is the angle between the height points and the base
         dh = height_points[1] - height_points[0]
         self.box.angle = np.arctan2(dh[0], -dh[1])
+        self.box.width = np.linalg.norm(base_points[1] - base_points[0])
+        self.box.height = np.linalg.norm(dh)
 
     def get_width_height_pairs(self):
         '''
