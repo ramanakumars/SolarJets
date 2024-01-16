@@ -62,6 +62,7 @@ def json_export_list(clusters, output):
 
         ci['width'] = {'mean': cluster.Width, 'std': cluster.std_W}
         ci['height'] = {'mean': cluster.Height, 'std': cluster.std_H}
+        ci['angle'] = {'mean': cluster.Angle, 'std': cluster.std_A}
 
         ci['velocity'] = cluster.Velocity
 
