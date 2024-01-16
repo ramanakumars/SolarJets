@@ -149,4 +149,4 @@ for sol in tqdm.tqdm(SOL_unique, desc='Clustering events', ascii=True):
     })
 
 with open('reductions/jet_cluster.json', 'w') as outfile:
-    json.dump(out_data, outfile, cls=NpEncoder)
+    json.dump(out_data, outfile, cls=NpEncoder, indent=4)

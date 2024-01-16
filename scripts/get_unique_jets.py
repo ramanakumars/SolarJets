@@ -16,4 +16,4 @@ for subject in tqdm.tqdm(aggregator.subjects, desc='Finding unique jets', ascii=
     jets.extend(aggregator.filter_classifications(subject))
 
 with open('reductions/jets.json', 'w') as outfile:
-    json.dump([jet.to_dict() for jet in jets], outfile, cls=NpEncoder)
+    json.dump([jet.to_dict() for jet in jets], outfile, cls=NpEncoder, indent=4)
