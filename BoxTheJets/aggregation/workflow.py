@@ -1542,8 +1542,7 @@ class Aggregator:
             nclassifications = sum(self.classification_data['subject_ids'] == subject)
 
         for jet in jets:
-            nextracts = max((len(jet.box_extracts['x']), len(jet.start_extracts['x']), len(jet.end_extracts['x'])))
-            jet.event_probability = nextracts / nclassifications
+            jet.nclassifications = nclassifications
 
         if plot:
             fig, ax = plt.subplots(1, 1, dpi=150)
@@ -1589,9 +1588,18 @@ class Jet:
         self.box_extracts = {'x': [], 'y': [], 'w': [], 'h': [], 'a': []}
         self.start_extracts = {'x': [], 'y': []}
         self.end_extracts = {'x': [], 'y': []}
+        self.nclassifications = 0
 
         self.autorotate()
-        
+
+    @property
+    def nextracts(self):
+        return max((len(self.box_extracts['x']), len(self.start_extracts['x']), len(self.end_extracts['x'])))
+
+    @property
+    def event_probability(self):
+        return self.nextracts / self.nclassifications
+
     def adding_new_attr(self, name_attr,value_attr):
         '''
             Add an additional attribute of value value_attr and name name_attr to the jet object 
