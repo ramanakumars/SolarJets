@@ -1,5 +1,0 @@
-reducer_config:
-    point_reducer_hdbscan: 
-        min_cluster_size: 2
-        min_samples: 2
-        allow_single_cluster: True

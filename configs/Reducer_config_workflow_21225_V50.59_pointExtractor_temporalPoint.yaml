@@ -1,0 +1,6 @@
+reducer_config:
+    temporal_point_reducer_hdbscan:
+        min_cluster_size: 3
+        min_samples: 3
+        allow_single_cluster: True
+

@@ -1,0 +1,31 @@
+extractor_config:
+    shape_extractor_temporalPoint:
+    -   details: {}
+        task: T0
+        shape: temporalPoint
+        tools:
+        - 0
+        - 1
+    -   details: {}
+        task: T3
+        shape: temporalPoint
+        tools:
+        - 0
+        - 1
+    shape_extractor_temporalRotateRectangle:
+    -   details: {}
+        shape: temporalRotateRectangle
+        task: T0
+        tools:
+        - 2
+    -   details: {}
+        shape: temporalRotateRectangle
+        task: T3
+        tools:
+        - 2
+    question_extractor:
+    -   task: T1
+    -   task: T2
+    -   task: T5
+workflow_id: 21225
+workflow_version: {'min': '50.63'}
