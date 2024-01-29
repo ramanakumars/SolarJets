@@ -80,6 +80,8 @@ def json_export_list(clusters, output):
             ji['sigma'] = jet.sigma
             ji['time'] = str(jet.time)
             ji['event_probability'] = jet.event_probability
+            ji['nextracts'] = jet.nextracts
+            ji['nclassifications'] = jet.nclassifications
 
             # these are in solar coordinates
             ji['solar_H'] = jet.solar_H
@@ -151,7 +153,7 @@ def json_import_list(input_file):
             jet_obj = Jet(subject, best_start, best_end, jeti, jet_params)
             jet_obj.time = np.datetime64(J['time'])
             jet_obj.sigma = J['sigma']
-            jet_obj.event_probability = J['event_probability']
+            jet_obj.nclassifications = J['nclassifications']
             if 'solar_cluster_values' in J:
                 jet_obj.solar_cluster_values = np.array([J['solar_cluster_values'][i]
                                   for i in ['x', 'y', 'w', 'h', 'a']])
@@ -164,8 +166,8 @@ def json_import_list(input_file):
                 [J['solar_start'][i] for i in ['x', 'y']])
             jet_obj.solar_end = np.array(
                 [J['solar_end'][i] for i in ['x', 'y']])
-            jet_obj.solar_cluster_values_x_y = np.array(
-                [J['solar_cluster_values_x_y'][i] for i in ['x', 'y']])
+            jet_obj.solar_cluster_values = np.array(
+                [J['solar_cluster_values'][i] for i in ['x', 'y', 'w', 'h', 'a']])
             
             jets_list.append(jet_obj)
 
@@ -198,6 +200,9 @@ def json_import_list(input_file):
         cluster_obj.std_W = json_obj['width']['std']
         cluster_obj.Height = json_obj['height']['mean']
         cluster_obj.std_H = json_obj['height']['std']
+
+        cluster_obj.Angle = json_obj['angle']['mean']
+        cluster_obj.std_A = json_obj['angle']['std']
 
         cluster_obj.sigma = json_obj['sigma']
 
