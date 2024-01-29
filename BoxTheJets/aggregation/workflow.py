@@ -5,6 +5,7 @@ import matplotlib.animation as animation
 import ast
 from panoptes_client import Panoptes, Subject
 from skimage import io, transform
+import pandas as pd
 import getpass
 from shapely.geometry import Polygon, Point
 
@@ -565,8 +566,7 @@ class Aggregator:
                 path to the classification file (in Zooniverse format)
         '''
         self.classification_file = classification_file
-        self.classification_data = ascii.read(
-            classification_file, delimiter=',')
+        self.classification_data = pd.read_csv(classification_file)
 
     def get_retired_subjects(self):
         '''
@@ -1538,6 +1538,12 @@ class Aggregator:
                 jets[index].end_extracts[key.replace(
                     '_end', '')].append(combined_ends[key][i])
 
+        if hasattr(self, 'classification_data'):
+            nclassifications = sum(self.classification_data['subject_ids'] == subject)
+
+        for jet in jets:
+            jet.nclassifications = nclassifications
+
         if plot:
             fig, ax = plt.subplots(1, 1, dpi=150)
 
@@ -1582,9 +1588,18 @@ class Jet:
         self.box_extracts = {'x': [], 'y': [], 'w': [], 'h': [], 'a': []}
         self.start_extracts = {'x': [], 'y': []}
         self.end_extracts = {'x': [], 'y': []}
+        self.nclassifications = 0
 
         self.autorotate()
-        
+
+    @property
+    def nextracts(self):
+        return max((len(self.box_extracts['x']), len(self.start_extracts['x']), len(self.end_extracts['x'])))
+
+    @property
+    def event_probability(self):
+        return self.nextracts / self.nclassifications
+
     def adding_new_attr(self, name_attr,value_attr):
         '''
             Add an additional attribute of value value_attr and name name_attr to the jet object 

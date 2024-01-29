@@ -162,7 +162,7 @@ def create_metadata_jsonfile(filename: str, subjectstoloop: np.array, subjectsda
               (int(i/len(subjectstoloop)*40)*'=', i+1, len(subjectstoloop)), end='')
         subjectDict = {}
         subjectDict['subjectId'] = int(subject)
-        subjectDict['data'] = create_metadata_jsonfile(subject, subjectsdata)
+        subjectDict['data'] = create_subjectinfo(subject, subjectsdata)
         if i != len(subjectstoloop) - 1:
             file.write(json.dumps(subjectDict, indent=3) + ',')
         else:

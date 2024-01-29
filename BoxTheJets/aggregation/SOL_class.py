@@ -14,10 +14,18 @@ from .meta_file_handler import MetaFile
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):
-            return int(obj)
+            if np.isnan(obj):
+                return None
+            else:
+                return int(obj)
         if isinstance(obj, np.floating):
-            return float(obj)
+            if np.isnan(obj):
+                return None
+            else:
+                return float(obj)
         if isinstance(obj, np.ndarray):
+            obj = obj
+            obj[np.isnan(obj)] = None
             return obj.tolist()
         return super(NpEncoder, self).default(obj)
 
@@ -51,9 +59,11 @@ def json_export_list(clusters, output):
         ci['max_height'] = {'mean': cluster.Max_Height,
                             'std_upper': cluster.std_maxH[0],
                             'std_lower': cluster.std_maxH[1]}
+        ci['event_probability'] = cluster.event_probability
 
         ci['width'] = {'mean': cluster.Width, 'std': cluster.std_W}
         ci['height'] = {'mean': cluster.Height, 'std': cluster.std_H}
+        ci['angle'] = {'mean': cluster.Angle, 'std': cluster.std_A}
 
         ci['velocity'] = cluster.Velocity
 
@@ -69,6 +79,9 @@ def json_export_list(clusters, output):
             ji['subject'] = jet.subject
             ji['sigma'] = jet.sigma
             ji['time'] = str(jet.time)
+            ji['event_probability'] = jet.event_probability
+            ji['nextracts'] = jet.nextracts
+            ji['nclassifications'] = jet.nclassifications
 
             # these are in solar coordinates
             ji['solar_H'] = jet.solar_H
@@ -100,7 +113,7 @@ def json_export_list(clusters, output):
         outdata.append(ci)
 
     with open(f"{str(output)}.json", "w") as outfile:
-        json.dump(outdata, outfile, cls=NpEncoder)
+        json.dump(outdata, outfile, cls=NpEncoder, indent=4, sort_keys=True)
 
     print(f'The {len(clusters)} JetCluster objects are exported to {output}.json.')
 
@@ -140,7 +153,7 @@ def json_import_list(input_file):
             jet_obj = Jet(subject, best_start, best_end, jeti, jet_params)
             jet_obj.time = np.datetime64(J['time'])
             jet_obj.sigma = J['sigma']
-
+            jet_obj.nclassifications = J['nclassifications']
             if 'solar_cluster_values' in J:
                 jet_obj.solar_cluster_values = np.array([J['solar_cluster_values'][i]
                                   for i in ['x', 'y', 'w', 'h', 'a']])
@@ -153,8 +166,8 @@ def json_import_list(input_file):
                 [J['solar_start'][i] for i in ['x', 'y']])
             jet_obj.solar_end = np.array(
                 [J['solar_end'][i] for i in ['x', 'y']])
-            jet_obj.solar_cluster_values_x_y = np.array(
-                [J['solar_cluster_values_x_y'][i] for i in ['x', 'y']])
+            jet_obj.solar_cluster_values = np.array(
+                [J['solar_cluster_values'][i] for i in ['x', 'y', 'w', 'h', 'a']])
             
             jets_list.append(jet_obj)
 
@@ -187,6 +200,9 @@ def json_import_list(input_file):
         cluster_obj.std_W = json_obj['width']['std']
         cluster_obj.Height = json_obj['height']['mean']
         cluster_obj.std_H = json_obj['height']['std']
+
+        cluster_obj.Angle = json_obj['angle']['mean']
+        cluster_obj.std_A = json_obj['angle']['std']
 
         cluster_obj.sigma = json_obj['sigma']
 
